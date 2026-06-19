@@ -1,0 +1,21 @@
+{
+  "name": "me-download-backend",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "sequelize": "^6.37.3",
+    "sqlite3": "^5.1.7",
+    "youtube-dl-exec": "^3.1.3"
+  }
+}
