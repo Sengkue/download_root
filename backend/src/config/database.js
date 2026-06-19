@@ -19,6 +19,7 @@ export const connectDB = async () => {
     // Import models to ensure they are registered before sync
     await import('../models/User.js');
     await import('../models/Post.js');
+    await import('../models/WebviewLink.js');
     // Synchronize models
     await sequelize.sync();
   } catch (error) {

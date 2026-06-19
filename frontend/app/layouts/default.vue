@@ -17,11 +17,10 @@
       <v-list density="compact" nav class="mt-2">
         <v-list-item to="/" prepend-icon="mdi-image" title="Image Download" value="image"></v-list-item>
         <v-list-item to="/downloader/media" prepend-icon="mdi-video" title="Media Downloader" value="media" color="red"></v-list-item>
-        <v-list-item to="/webview/kev_kawm" prepend-icon="mdi-book-open-page-variant" title="Kev Kawm" value="education" color="orange"></v-list-item>
-        <v-list-item to="/webview/duab_toj_roob" prepend-icon="mdi-heart-multiple" title="Duab Toj Roob" value="social" color="pink"></v-list-item>
+
         <v-list-item to="/downloader/stock" prepend-icon="mdi-magnify" title="Stock Search" value="search" color="blue"></v-list-item>
-        <v-list-item to="/lyrics" prepend-icon="mdi-microphone-variant" title="Hmong Lyrics" value="lyrics" color="purple"></v-list-item>
-        <v-list-item to="/typing-test" prepend-icon="mdi-keyboard" title="Typing Test" value="typing" color="green"></v-list-item>
+        <v-list-item to="/webview-manager" prepend-icon="mdi-table-large" title="Webview Manager" value="webview" color="teal"></v-list-item>
+        <v-list-item to="/typing-test" prepend-icon="mdi-keyboard" title="Lao Typing Test" value="typing" color="purple"></v-list-item>
       </v-list>
     </v-navigation-drawer>
 

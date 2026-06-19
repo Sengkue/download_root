@@ -1,6 +1,9 @@
+import 'dotenv/config';
 import express from 'express';
+import { GoogleGenAI } from '@google/genai';
 import cors from 'cors';
 import youtubeDl from 'youtube-dl-exec';
+import ffmpegPath from 'ffmpeg-static';
 import { connectDB } from './config/database.js';
 import fs from 'fs';
 import path from 'path';
@@ -10,8 +13,13 @@ import * as cheerio from 'cheerio';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import { connectGoogleSheets, getGoogleSheetLinks, addGoogleSheetLink, deleteGoogleSheetLink, updateGoogleSheetLink, getTypingLessons, saveTypingResult, addTypingLesson } from './config/googleSheets.js';
 import { User } from './models/User.js';
 import { Post } from './models/Post.js';
+import { WebviewLink } from './models/WebviewLink.js';
+import { API_KEYS } from './config/apiKeys.js';
+
+let currentKeyIndex = 0;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -272,11 +280,13 @@ app.post('/api/download', async (req, res) => {
           audioFormat: 'mp3',
           audioQuality: 0,          // best quality
           noPlaylist: true,
+          ffmpegLocation: `"${ffmpegPath}"`,
           o: tmpTemplate,
         } : {
           f: quality ? `"bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best"` : '"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"',
           mergeOutputFormat: 'mp4',
           noPlaylist: true,
+          ffmpegLocation: `"${ffmpegPath}"`,
           o: tmpTemplate,
         };
 
@@ -598,8 +608,208 @@ app.post('/api/lyrics/song', async (req, res) => {
   }
 });
 
+// AI Chat Endpoint
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    // We can still try process.env.GEMINI_API_KEY first if it exists, but the user provided a massive array of keys.
+    // Let's rely entirely on the API_KEYS array from config/apiKeys.js.
+    if (!API_KEYS || API_KEYS.length === 0) {
+      console.error('Missing API_KEYS');
+      return res.status(500).json({ error: 'AI features are not configured properly.' });
+    }
+    
+    // Format messages for Gemini API
+    const contents = messages.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
+
+    let response;
+    let success = false;
+    let lastError = null;
+    let keysTried = 0;
+
+    while (keysTried < API_KEYS.length && !success) {
+      const apiKey = API_KEYS[currentKeyIndex];
+      const ai = new GoogleGenAI({ apiKey });
+      
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: contents,
+          config: {
+            systemInstruction: "You are a helpful, friendly AI assistant built into a media downloading app. Give concise and helpful answers.",
+          }
+        });
+        success = true;
+      } catch (error) {
+        console.error(`Key at index ${currentKeyIndex} failed with status ${error.status}:`, error.message);
+        lastError = error;
+        
+        // If it's a quota error, auth error, or server error, rotate to the next key
+        if ([429, 403, 400, 503].includes(error.status)) {
+          console.log(`Rotating to next key... (${keysTried + 1}/${API_KEYS.length} keys tried)`);
+          currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+          keysTried++;
+        } else {
+          // Other unknown error, don't necessarily rotate, just break
+          break;
+        }
+      }
+    }
+
+    if (success) {
+      return res.json({ message: response.text });
+    } else {
+      console.error('All keys exhausted or failed.');
+      let errorMessage = 'Failed to communicate with AI';
+      
+      if (lastError && lastError.status === 429) {
+        errorMessage = 'The AI is currently receiving too many requests and all backup API keys have hit their rate limit. Please try again later.';
+      } else if (lastError && [403, 400].includes(lastError.status)) {
+        errorMessage = 'All backup API keys have been denied access or are invalid.';
+      }
+      
+      return res.status(lastError?.status || 500).json({ error: errorMessage });
+    }
+  } catch (error) {
+    console.error('AI Chat Error:', error);
+    res.status(500).json({ error: 'Failed to communicate with AI' });
+  }
+});
+
+// Webview Links Endpoints
+app.get('/api/webview-links', async (req, res) => {
+  try {
+    const googleLinks = await getGoogleSheetLinks();
+    if (googleLinks) {
+      return res.json(googleLinks);
+    }
+    const links = await WebviewLink.findAll({ order: [['createdAt', 'DESC']] });
+    res.json(links);
+  } catch (err) {
+    console.error('Fetch webview links error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/webview-links', async (req, res) => {
+  try {
+    const { title, url } = req.body;
+    if (!title || !url) return res.status(400).json({ error: 'Title and URL are required' });
+
+    const googleLink = await addGoogleSheetLink(title, url);
+    if (googleLink) {
+      return res.json(googleLink);
+    }
+
+    const newLink = await WebviewLink.create({ title, url });
+    res.json(newLink);
+  } catch (err) {
+    console.error('Create webview link error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/webview-links/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const isGoogleDeleted = await deleteGoogleSheetLink(id);
+    if (isGoogleDeleted) {
+      return res.json({ success: true });
+    }
+
+    const deleted = await WebviewLink.destroy({ where: { id } });
+    if (!deleted) return res.status(404).json({ error: 'Link not found in SQLite' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete webview link error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/webview-links/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, url } = req.body;
+    
+    if (!title || !url) return res.status(400).json({ error: 'Title and URL are required' });
+
+    const isGoogleUpdated = await updateGoogleSheetLink(id, title, url);
+    if (isGoogleUpdated) {
+      return res.json({ success: true, link: { id: parseInt(id), title, url } });
+    }
+
+    const link = await WebviewLink.findByPk(id);
+    if (!link) return res.status(404).json({ error: 'Link not found in SQLite' });
+    
+    link.title = title;
+    link.url = url;
+    await link.save();
+    
+    res.json({ success: true, link });
+  } catch (err) {
+    console.error('Update webview link error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Typing Test Endpoints
+app.get('/api/typing-lessons', async (req, res) => {
+  try {
+    const lessons = await getTypingLessons();
+    res.json(lessons);
+  } catch (err) {
+    console.error('Fetch typing lessons error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/typing-lessons', async (req, res) => {
+  try {
+    const { title, content } = req.body;
+    if (!title || !content) return res.status(400).json({ error: 'Title and content are required' });
+    
+    const newLesson = await addTypingLesson(title, content);
+    if (newLesson) {
+      res.json(newLesson);
+    } else {
+      res.status(500).json({ error: 'Failed to save lesson to Google Sheets' });
+    }
+  } catch (err) {
+    console.error('Create typing lesson error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/typing-results', async (req, res) => {
+  try {
+    const { lessonTitle, cpm, wpm, accuracy } = req.body;
+    if (!lessonTitle) return res.status(400).json({ error: 'Lesson Title is required' });
+    
+    const success = await saveTypingResult(lessonTitle, cpm, wpm, accuracy);
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ error: 'Failed to save to Google Sheets' });
+    }
+  } catch (err) {
+    console.error('Save typing result error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Start Server
 app.listen(PORT, async () => {
     await connectDB();
+    await connectGoogleSheets();
     console.log(`🚀 Dedicated Backend server running on http://localhost:${PORT}`);
 });
+
+// Restart trigger
