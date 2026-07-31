@@ -17,10 +17,27 @@
       <v-list density="compact" nav class="mt-2">
         <v-list-item to="/" prepend-icon="mdi-image" title="Image Download" value="image"></v-list-item>
         <v-list-item to="/downloader/media" prepend-icon="mdi-video" title="Media Downloader" value="media" color="red"></v-list-item>
-
         <v-list-item to="/downloader/stock" prepend-icon="mdi-magnify" title="Stock Search" value="search" color="blue"></v-list-item>
         <v-list-item to="/webview-manager" prepend-icon="mdi-table-large" title="Webview Manager" value="webview" color="teal"></v-list-item>
         <v-list-item to="/typing-test" prepend-icon="mdi-keyboard" title="Lao Typing Test" value="typing" color="purple"></v-list-item>
+        <v-list-group value="Chat AI">
+          <template v-slot:activator="{ props }">
+            <v-list-item
+              v-bind="props"
+              prepend-icon="mdi-robot"
+              title="Chat AI"
+            ></v-list-item>
+          </template>
+
+          <v-list-item 
+            to="/chatai/qwenai" 
+            prepend-icon="mdi-message-text" 
+            title="Qwen AI Chat" 
+            value="qwenai" 
+            color="amber"
+            class="pl-8"
+          ></v-list-item>
+        </v-list-group>
       </v-list>
     </v-navigation-drawer>
 

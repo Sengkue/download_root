@@ -57,3 +57,15 @@ npm run dev
 6. **ເປີດໃຊ້ API:** ກວດສອບໃຫ້ແນ່ໃຈວ່າທ່ານໄດ້ກົດປຸ່ມ Enable ເພື່ອເປີດໃຊ້ງານ **Google Sheets API** ແລ້ວໃນ Google Cloud Console.
 
 ເມື່ອຕັ້ງຄ່າສຳເລັດແລ້ວ, ເຊີບເວີຈະແຈ້ງເຕືອນວ່າ `✅ Connected to Google Sheet` ເຊິ່ງໝາຍຄວາມວ່າພ້ອມນຳໃຊ້ແລ້ວ!
+
+---
+
+## 6. ຟີເຈີໃໝ່ລ່າສຸດ (Latest Features): Qwen AI Chat & Image Generation
+ໂປຣເຈັກໄດ້ມີການອັບເກຣດ ແລະ ເພີ່ມຟີເຈີ AI ໃໝ່ເຂົ້າໄປໃນລະບົບ:
+- **Nuxt 4 Upgrade**: ລະບົບ Frontend ໄດ້ຖືກອັບເກຣດເປັນ Nuxt 4 (Compatibility Date: 2024-11-01) ເພື່ອປະສິດທິພາບທີ່ດີຂຶ້ນ.
+- **Qwen AI Chat (OpenRouter)**: ເພີ່ມໜ້າຕ່າງແຊັດ AI ອັດສະລິຍະຢູ່ທີ່ເມນູ `/chatai/qwenai` ພ້ອມທັງ Floating Widget.
+- **AI Image Generation**: ສາມາດສັ່ງໃຫ້ AI ແຕ້ມຮູບໄດ້ (ຜ່ານ Pollinations AI) ໂດຍການພິມຄຳສັ່ງ `/image [ຊື່ຮູບ]`, ພ້ອມມີລະບົບ Loading Spinner ທີ່ສວຍງາມ.
+- **Full-Screen Image Viewer**: ລະບົບເບິ່ງຮູບພາບແບບເຕັມຈໍ (True Full-Screen Modal) ພ້ອມປຸ່ມດາວໂຫຼດຮູບພາບໂດຍກົງ.
+- **Full-Screen Chat**: ສາມາດຂະຫຍາຍໜ້າຈໍແຊັດ AI ໃຫ້ເຕັມໜ້າຈໍໄດ້ເພື່ອຄວາມສະດວກໃນການອ່ານ.
+
+*(ໝາຍເຫດ: ສຳລັບການນຳໃຊ້ Qwen AI, ທ່ານຈຳເປັນຕ້ອງມີ OpenRouter API Key ເຊິ່ງສາມາດໄປສ້າງໄດ້ທີ່ openrouter.ai/keys).*
