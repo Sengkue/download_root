@@ -634,30 +634,40 @@ app.post('/api/chat', async (req, res) => {
     let lastError = null;
     let keysTried = 0;
 
+    const modelsToTry = ['gemini-flash-latest', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+
     while (keysTried < API_KEYS.length && !success) {
       const apiKey = API_KEYS[currentKeyIndex];
       const ai = new GoogleGenAI({ apiKey });
       
-      try {
-        response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: contents,
-          config: {
-            systemInstruction: "You are a helpful, friendly AI assistant built into a media downloading app. Give concise and helpful answers.",
+      for (const modelName of modelsToTry) {
+        try {
+          response = await ai.models.generateContent({
+            model: modelName,
+            contents: contents,
+            config: {
+              systemInstruction: "You are a helpful, friendly AI assistant built into a media downloading app. Give concise and helpful answers. If the user asks for an image to be generated, created, or drawn, return exactly this markdown: ![image description](https://image.pollinations.ai/prompt/image_description) replacing 'image_description' with a detailed prompt of the requested image (URL-encoded). Do not use markdown code blocks for the image link.",
+            }
+          });
+          success = true;
+          break;
+        } catch (error) {
+          console.error(`Key at index ${currentKeyIndex} failed on model ${modelName} (status ${error.status}):`, error.message);
+          lastError = error;
+          if (error.status === 404) {
+            continue; // Try next model name for same key
+          } else {
+            break; // Quota or auth error for this key
           }
-        });
-        success = true;
-      } catch (error) {
-        console.error(`Key at index ${currentKeyIndex} failed with status ${error.status}:`, error.message);
-        lastError = error;
-        
-        // If it's a quota error, auth error, or server error, rotate to the next key
-        if ([429, 403, 400, 503].includes(error.status)) {
+        }
+      }
+
+      if (!success) {
+        if ([429, 403, 400, 503].includes(lastError?.status)) {
           console.log(`Rotating to next key... (${keysTried + 1}/${API_KEYS.length} keys tried)`);
           currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
           keysTried++;
         } else {
-          // Other unknown error, don't necessarily rotate, just break
           break;
         }
       }
