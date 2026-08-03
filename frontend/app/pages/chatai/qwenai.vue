@@ -70,7 +70,8 @@
 <script setup>
 import { ref, nextTick } from "vue";
 
-const OPENROUTER_API_KEY = "YOUR_OPENROUTER_API_KEY_HERE"; // WARNING: Do not hardcode real keys here!
+const config = useRuntimeConfig();
+const OPENROUTER_API_KEY = config.public.openRouterApiKey;
 
 const messages = ref([
   {

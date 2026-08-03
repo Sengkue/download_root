@@ -20,6 +20,7 @@
         <v-list-item to="/downloader/stock" prepend-icon="mdi-magnify" title="Stock Search" value="search" color="blue"></v-list-item>
         <v-list-item to="/webview-manager" prepend-icon="mdi-table-large" title="Webview Manager" value="webview" color="teal"></v-list-item>
         <v-list-item to="/typing-test" prepend-icon="mdi-keyboard" title="Lao Typing Test" value="typing" color="purple"></v-list-item>
+        <v-list-item to="/editor" prepend-icon="mdi-video-plus-outline" title="Video Editor" value="editor" color="orange"></v-list-item>
         <v-list-group value="Chat AI">
           <template v-slot:activator="{ props }">
             <v-list-item

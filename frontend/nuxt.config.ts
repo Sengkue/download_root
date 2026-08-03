@@ -7,6 +7,12 @@ export default defineNuxtConfig({
     compatibilityVersion: 4,
   },
   
+  runtimeConfig: {
+    public: {
+      openRouterApiKey: process.env.NUXT_PUBLIC_OPENROUTER_API_KEY || '',
+    }
+  },
+  
   build: {
     transpile: ['vuetify'],
   },

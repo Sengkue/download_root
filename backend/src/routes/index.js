@@ -7,6 +7,7 @@ import downloadRoutes from './download.routes.js';
 import searchRoutes from './search.routes.js';
 import lyricsRoutes from './lyrics.routes.js';
 import typingRoutes from './typing.routes.js';
+import editorRoutes from './editor.routes.js';
 
 const router = express.Router();
 
@@ -16,6 +17,7 @@ router.use('/webview-links', webviewRoutes);
 router.use('/chat', chatRoutes);
 router.use('/search', searchRoutes);
 router.use('/lyrics', lyricsRoutes);
+router.use('/editor', editorRoutes);
 
 // These routers define top-level /api endpoints (e.g. /api/download, /api/info, /api/typing-lessons)
 router.use('/', downloadRoutes);
