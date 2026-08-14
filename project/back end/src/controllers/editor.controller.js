@@ -24,13 +24,13 @@ function parseTimeToSeconds(val) {
 /**
  * Probe an audio file's duration in seconds using FFmpeg.
  */
-export async function probeAudioDuration(audioPath) {
+async function probeAudioDuration(audioPath) {
   return new Promise((resolve) => {
     const probe = spawn(ffmpegPath, ['-i', audioPath, '-hide_banner', '-f', 'null', '-']);
     let output = '';
     probe.stderr.on('data', (d) => { output += d.toString(); });
     probe.on('close', () => {
-      const match = output.match(/Duration:\s*(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/i);
+      const match = output.match(/Duration: (\d{2}:\d{2}:\d{2}\.\d{2})/);
       resolve(match ? parseTimeToSeconds(match[1]) : 0);
     });
     probe.on('error', () => resolve(0));
@@ -40,11 +40,10 @@ export async function probeAudioDuration(audioPath) {
 /**
  * Run an FFmpeg command as a promise. Optionally tracks progress via progressMap.
  */
-export function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, progressScale = 100 } = {}) {
+function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, progressScale = 100 } = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath, args);
     let stdoutBuffer = '';
-    let stderrBuffer = '';
 
     proc.stdout.on('data', (data) => {
       stdoutBuffer += data.toString();
@@ -67,11 +66,10 @@ export function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, p
       }
     });
 
-    proc.stderr.on('data', (d) => {
-      stderrBuffer += d.toString();
-    });
+    proc.stderr.on('data', () => { /* suppress */ });
 
     proc.on('close', (code) => {
+      // When this pass finishes, immediately set progress to the end of its range
       if (jobId && code === 0) {
         progressMap.set(jobId, {
           progress: progressOffset + progressScale,
@@ -79,7 +77,7 @@ export function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, p
         });
       }
       if (code === 0) resolve();
-      else reject(new Error(`FFmpeg exited with code ${code}: ${stderrBuffer.slice(-500)}`));
+      else reject(new Error(`FFmpeg exited with code ${code}`));
     });
     proc.on('error', reject);
   });
@@ -87,19 +85,16 @@ export function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, p
 
 export const mergeMedia = async (req, res) => {
   const tmpFiles = []; // Track all temp files for cleanup
-  let imageFiles = [];
-  let audioFile = null;
-  let audioPath = '';
 
   try {
-    if (!req.files || !req.files['image'] || !req.files['audio'] || req.files['image'].length === 0 || req.files['audio'].length === 0) {
+    if (!req.files || !req.files['image'] || !req.files['audio']) {
       return res.status(400).json({ error: 'Both image(s) and audio files are required' });
     }
 
-    const { jobId, zoomDir = 'alternate', zoomSpeed = 'normal', imageDuration = 4, transitionTypes, transitionDuration: reqTransitionDuration = 1 } = req.body;
-    imageFiles = req.files['image'];
-    audioFile = req.files['audio'][0];
-    audioPath = path.resolve(audioFile.path);
+    const { jobId, zoomDir = 'alternate', zoomSpeed = 'normal' } = req.body;
+    const imageFiles = req.files['image'];
+    const audioFile = req.files['audio'][0];
+    const audioPath = path.resolve(audioFile.path);
 
     const tmpId = crypto.randomBytes(8).toString('hex');
     const tmpDir = os.tmpdir();
@@ -108,51 +103,22 @@ export const mergeMedia = async (req, res) => {
 
     // ─── Probe audio duration ───
     if (jobId) progressMap.set(jobId, { progress: 0, status: 'Analyzing audio track...' });
-    let audioDuration = await probeAudioDuration(audioPath);
+    const audioDuration = await probeAudioDuration(audioPath);
     console.log(`[FFmpeg] Audio duration: ${audioDuration.toFixed(2)}s`);
 
-    if (!audioDuration || audioDuration <= 0) {
-      audioDuration = 10; // safe default if duration couldn't be probed
-    }
-
-    // ─── Zoom settings (jitter-free Ken Burns) ───
+    // ─── Zoom settings ───
     const FPS = 25;
-
-    // Zoom range: how much total zoom is applied (e.g. 0.3 = zoom from 1.0x to 1.3x)
-    let zoomRange = 0.3; // Default to 30%
-    if (zoomSpeed) {
-      if (!isNaN(zoomSpeed)) {
-        // Numeric slider value (0-100) -> Convert to 0.0 - 1.0 range
-        zoomRange = Math.max(0.01, Math.min(parseFloat(zoomSpeed) / 100, 1.5));
-      } else {
-        // Fallback for old string values
-        const zoomRangeMap = { slow: 0.15, normal: 0.3, fast: 0.5 };
-        zoomRange = zoomRangeMap[zoomSpeed] || 0.3;
-      }
-    }
-
-    // CRITICAL: trunc() on x,y eliminates subpixel rounding jitter (the #1 cause of shaking)
-    // Without trunc(), fractional pixel positions round differently each frame → ±1px wobble
-    const centerExpr = `x='trunc((iw-iw/zoom)/2)':y='trunc((ih-ih/zoom)/2)'`;
-
-    // Input resolution for zoompan source — SUPER FIX: upscale to 4K (3840x2160)
-    // Running zoompan at 4K and downscaling to 720p turns 1-pixel rounding jumps into smooth sub-pixel interpolation!
-    const ZP_INPUT_W = 3840;
-    const ZP_INPUT_H = 2160;
+    const speedMap = { slow: 0.0005, normal: 0.0015, fast: 0.003 };
+    const zoomStep = speedMap[zoomSpeed] || speedMap.normal;
+    const centerMath = `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'`;
 
     const getZoompanFilter = (dir, durationFrames) => {
-      // CRITICAL: Use absolute position formula (on/d) instead of incremental (zoom+step).
-      // Incremental "zoom+0.001" accumulates floating-point errors over hundreds of frames,
-      // causing visible drift. Absolute "1 + range * (on/d)" calculates each frame independently.
-      // SUPER FIX: Output size is 4K (s=${ZP_INPUT_W}x${ZP_INPUT_H}) instead of 1280x720.
       if (dir === 'none') {
-        return `zoompan=z='1':d=${durationFrames}:fps=${FPS}:s=${ZP_INPUT_W}x${ZP_INPUT_H}`;
+        return `zoompan=z='1':d=${durationFrames}:fps=${FPS}:s=1280x720`;
       } else if (dir === 'out') {
-        // Zoom out: start at (1+range), smoothly ease down to 1.0
-        return `zoompan=z='if(lte(on,1),1+${zoomRange},1+${zoomRange}*(1-on/${durationFrames}))':${centerExpr}:d=${durationFrames}:fps=${FPS}:s=${ZP_INPUT_W}x${ZP_INPUT_H}`;
+        return `zoompan=z='if(eq(on,1),1.5,max(1.0,zoom-${zoomStep}))':${centerMath}:d=${durationFrames}:fps=${FPS}:s=1280x720`;
       } else {
-        // Zoom in: start at 1.0, smoothly ease up to (1+range)
-        return `zoompan=z='if(lte(on,1),1,1+${zoomRange}*on/${durationFrames})':${centerExpr}:d=${durationFrames}:fps=${FPS}:s=${ZP_INPUT_W}x${ZP_INPUT_H}`;
+        return `zoompan=z='min(zoom+${zoomStep},1.5)':${centerMath}:d=${durationFrames}:fps=${FPS}:s=1280x720`;
       }
     };
 
@@ -170,11 +136,10 @@ export const mergeMedia = async (req, res) => {
       await runFFmpeg([
         '-loop', '1', '-t', '0.04', '-i', imagePath,
         '-i', audioPath,
-        '-c:v', 'libx264', '-preset', 'veryfast',
+        '-c:v', 'libx264', '-tune', 'stillimage',
         '-c:a', 'aac', '-b:a', '192k', '-pix_fmt', 'yuv420p',
-        '-vf', `scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${singleZoompan},scale=1280:720:flags=bicubic,setpts=PTS-STARTPTS,format=yuv420p`,
-        '-t', audioDuration.toString(),
-        '-y', '-progress', 'pipe:1',
+        '-vf', `scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,setsar=1,${singleZoompan},setpts=PTS-STARTPTS,format=yuv420p`,
+        '-shortest', '-y', '-progress', 'pipe:1',
         outputPath
       ], { jobId, expectedDuration: audioDuration, progressOffset: 2, progressScale: 97 });
 
@@ -182,18 +147,14 @@ export const mergeMedia = async (req, res) => {
     // MULTIPLE IMAGES — Two-Pass: create slideshow, then loop
     // ══════════════════════════════════════════════════════════
     } else {
-      const durationPerImage = parseInt(imageDuration, 10) || 4;
-      const transitionDuration = parseFloat(reqTransitionDuration) || 1;
+      const durationPerImage = 4;
+      const transitionDuration = 1;
       const durationFrames = durationPerImage * FPS;
       const slideshowPath = path.join(tmpDir, `slideshow-${tmpId}.mp4`);
       tmpFiles.push(slideshowPath);
 
-      const isNoneTransition = transitionTypes && (transitionTypes.includes('none') || transitionDuration <= 0);
-
       // Slideshow duration with overlapping transitions
-      const slideshowDuration = isNoneTransition 
-        ? (imageFiles.length * durationPerImage)
-        : (imageFiles.length * durationPerImage) - ((imageFiles.length - 1) * transitionDuration);
+      const slideshowDuration = (imageFiles.length * durationPerImage) - ((imageFiles.length - 1) * transitionDuration);
 
       // ── Pass 1: Build the slideshow clip (no audio) ──
       if (jobId) progressMap.set(jobId, { progress: 2, status: 'Creating slideshow effects...' });
@@ -211,63 +172,17 @@ export const mergeMedia = async (req, res) => {
           currentDir = (i % 2 === 0) ? 'in' : 'out';
         }
         const zp = getZoompanFilter(currentDir, durationFrames);
-        filterComplex += `[${i}:v]scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${zp},scale=1280:720:flags=bicubic,setpts=PTS-STARTPTS,format=yuv420p[v${i}]; `;
+        filterComplex += `[${i}:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,setsar=1,${zp},setpts=PTS-STARTPTS,format=yuv420p[v${i}]; `;
       }
 
-      // SUPER FIX: Use only universally supported transitions for random to avoid "Not yet implemented" crashes
-      const allTransitions = [
-        'fade', 'fadeblack', 'fadewhite', 'wipeleft', 'wiperight', 
-        'circlecrop', 'rectcrop', 'distance', 'radial', 'pixelize', 'hblur'
-      ];
-
-      let parsedTransitionTypes = [];
-      try {
-        if (transitionTypes) {
-          parsedTransitionTypes = JSON.parse(transitionTypes);
-        }
-      } catch (e) {
-        console.warn('Failed to parse transitionTypes', e);
-      }
-      
-      if (!Array.isArray(parsedTransitionTypes) || parsedTransitionTypes.length === 0) {
-        parsedTransitionTypes = allTransitions;
-      }
-
-      if (isNoneTransition) {
-        let concatNodes = '';
-        for (let i = 0; i < imageFiles.length; i++) {
-          concatNodes += `[v${i}]`;
-        }
-        filterComplex += `${concatNodes}concat=n=${imageFiles.length}:v=1:a=0[vout]`;
-      } else {
-        let lastNode = '[v0]';
-        let currentOffset = durationPerImage - transitionDuration;
-        for (let i = 1; i < imageFiles.length; i++) {
-          const outNode = (i === imageFiles.length - 1) ? '[vout]' : `[xf${i}]`;
-          
-          let effect = parsedTransitionTypes[Math.floor(Math.random() * parsedTransitionTypes.length)];
-          
-          // Safe fallback for effects that might be requested by UI but unsupported by installed FFmpeg version
-          const fallbackMap = {
-            'smoothleft': 'slideleft',
-            'smoothright': 'slideright',
-            'glitch': 'pixelize',
-            'smoothpie': 'circlecrop',
-            'zoomin': 'fade',
-            'hlslice': 'fade',
-            'dreamy': 'hblur',
-            'radial': 'fade'
-          };
-          if (fallbackMap[effect]) effect = fallbackMap[effect];
-          if (effect === 'none') effect = 'fade';
-          
-          const safeOffset = Math.max(0, currentOffset);
-          
-          filterComplex += `${lastNode}[v${i}]xfade=transition=${effect}:duration=${transitionDuration}:offset=${safeOffset}${outNode}; `;
-          
-          lastNode = outNode;
-          currentOffset += (durationPerImage - transitionDuration);
-        }
+      let lastNode = '[v0]';
+      let currentOffset = durationPerImage - transitionDuration;
+      for (let i = 1; i < imageFiles.length; i++) {
+        const outNode = (i === imageFiles.length - 1) ? '[vout]' : `[xf${i}]`;
+        filterComplex += `${lastNode}[v${i}]xfade=transition=fade:duration=${transitionDuration}:offset=${currentOffset}${outNode}`;
+        if (i < imageFiles.length - 1) filterComplex += '; ';
+        lastNode = outNode;
+        currentOffset += (durationPerImage - transitionDuration);
       }
 
       pass1Args.push(
@@ -275,8 +190,8 @@ export const mergeMedia = async (req, res) => {
         '-map', '[vout]',
         '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
         '-r', FPS.toString(),   // Explicit output framerate
-        '-crf', '20',           // High quality, fast encode
-        '-preset', 'veryfast',  // Fast encoding
+        '-crf', '18',           // High quality (lower = better, 18 is visually lossless)
+        '-preset', 'medium',    // Good quality/speed balance
         '-y', '-progress', 'pipe:1',
         slideshowPath
       );
@@ -290,16 +205,13 @@ export const mergeMedia = async (req, res) => {
       // ── Pass 2: Loop the slideshow over the full audio ──
       if (jobId) progressMap.set(jobId, { progress: 65, status: 'Looping slideshow over audio...' });
 
-      const loopCount = Math.max(0, Math.ceil(audioDuration / slideshowDuration) - 1);
-
       await runFFmpeg([
-        '-stream_loop', loopCount.toString(), '-i', slideshowPath,
+        '-stream_loop', '-1', '-i', slideshowPath,
         '-i', audioPath,
         '-map', '0:v', '-map', '1:a',
         '-c:v', 'copy',         // NO re-encoding! Preserves exact quality from Pass 1
         '-c:a', 'aac', '-b:a', '192k',
-        '-t', audioDuration.toString(),
-        '-y', '-progress', 'pipe:1',
+        '-shortest', '-y', '-progress', 'pipe:1',
         outputPath
       ], { jobId, expectedDuration: audioDuration, progressOffset: 65, progressScale: 34 });
 
@@ -320,9 +232,7 @@ export const mergeMedia = async (req, res) => {
     fileStream.pipe(res);
 
     res.on('finish', () => {
-      setTimeout(() => {
-        if (jobId) progressMap.delete(jobId);
-      }, 5000);
+      if (jobId) progressMap.delete(jobId);
       cleanup(imageFiles, audioPath, tmpFiles);
     });
 
@@ -334,7 +244,7 @@ export const mergeMedia = async (req, res) => {
     }
     cleanup(imageFiles || [], audioPath || '', tmpFiles);
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message || 'Failed to generate video' });
+      res.status(500).json({ error: 'Failed to generate video' });
     }
   }
 };

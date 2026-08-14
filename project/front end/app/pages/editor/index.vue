@@ -1,6 +1,14 @@
 <template>
   <div class="editor-container">
-
+    <div class="glass-header">
+      <div class="header-icon-box">
+        <v-icon icon="mdi-video-plus-outline" size="32" color="white"></v-icon>
+      </div>
+      <div class="header-text">
+        <h1 class="header-title">Magic Video Editor</h1>
+        <p class="header-subtitle">Fuse images and audio into stunning videos instantly.</p>
+      </div>
+    </div>
 
     <div class="workspace">
       <!-- Upload Zones -->
@@ -15,10 +23,10 @@
           @drop.prevent="onDropImage"
           @click="$refs.imageInput.click()"
         >
-          <input type="file" ref="imageInput" accept="image/*" multiple class="d-none" @change="onSelectImage" @click.stop />
+          <input type="file" ref="imageInput" accept="image/*" multiple class="d-none" @change="onSelectImage" />
           
           <div v-if="imageFiles.length === 0" class="zone-placeholder">
-            <v-icon icon="mdi-image-multiple-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
+            <v-icon icon="mdi-image-multiple-outline" size="48" class="mb-3" color="rgba(255,255,255,0.7)"></v-icon>
             <h3>Image Track</h3>
             <p>Drag & Drop multiple images or Click to browse</p>
           </div>
@@ -49,10 +57,10 @@
           @drop.prevent="onDropAudio"
           @click="$refs.audioInput.click()"
         >
-          <input type="file" ref="audioInput" accept="audio/*" class="d-none" @change="onSelectAudio" @click.stop />
+          <input type="file" ref="audioInput" accept="audio/*" class="d-none" @change="onSelectAudio" />
           
           <div v-if="!audioFile" class="zone-placeholder">
-            <v-icon icon="mdi-music-note-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
+            <v-icon icon="mdi-music-note-outline" size="48" class="mb-3" color="rgba(255,255,255,0.7)"></v-icon>
             <h3>Audio Track</h3>
             <p>Drag & Drop or Click to browse</p>
           </div>
@@ -69,16 +77,11 @@
       </div>
 
       <!-- Effects Settings Panel -->
-      <div v-if="!videoUrl" class="settings-panel glass-card mt-10">
-        <div class="d-flex align-center mb-8">
-          <div class="icon-box bg-primary-lighten-1 rounded-xl pa-3 mr-4 d-flex align-center justify-center">
-            <v-icon icon="mdi-movie-filter" color="primary" size="28"></v-icon>
-          </div>
-          <div>
-            <h3 class="text-h5 font-weight-bold text-white mb-0">Cinematic Effects</h3>
-            <p class="text-caption text-grey-lighten-1 mb-0">Fine-tune your masterpiece settings</p>
-          </div>
-        </div>
+      <div v-if="!videoUrl" class="settings-panel glass-card mt-8">
+        <h3 class="mb-4 d-flex align-center gap-2">
+          <v-icon icon="mdi-movie-filter" color="primary"></v-icon>
+          Cinematic Effects Settings
+        </h3>
         
         <v-row>
           <v-col cols="12" md="6">
@@ -105,136 +108,18 @@
           </v-col>
           
           <v-col cols="12" md="6">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <p class="font-weight-bold mb-0 text-white">Zoom Intensity</p>
-              <span class="text-caption text-secondary font-weight-bold">{{ zoomSpeed }}%</span>
-            </div>
-            <v-slider
+            <p class="font-weight-bold mb-2 text-white">Zoom Speed</p>
+            <v-btn-toggle
               v-model="zoomSpeed"
-              :disabled="zoomDir === 'none'"
               color="secondary"
-              track-color="rgba(255,255,255,0.1)"
-              min="5"
-              max="100"
-              step="1"
-              hide-details
-              thumb-size="20"
-              track-size="6"
-              class="mt-2"
+              mandatory
+              :disabled="zoomDir === 'none'"
+              class="w-100 btn-group-custom"
             >
-              <template v-slot:prepend>
-                <v-icon size="20" color="grey-lighten-1" @click="zoomSpeed = Math.max(5, zoomSpeed - 5)">mdi-minus</v-icon>
-              </template>
-              <template v-slot:append>
-                <v-icon size="20" color="grey-lighten-1" @click="zoomSpeed = Math.min(100, zoomSpeed + 5)">mdi-plus</v-icon>
-              </template>
-            </v-slider>
-          </v-col>
-        </v-row>
-
-        <v-row class="mt-2">
-          <v-col cols="12" md="6">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <p class="font-weight-bold mb-0 text-white">Time per Image</p>
-              <span class="text-caption text-success font-weight-bold">{{ imageDuration }} seconds</span>
-            </div>
-            <v-slider
-              v-model="imageDuration"
-              color="success"
-              track-color="rgba(255,255,255,0.1)"
-              min="2"
-              max="20"
-              step="1"
-              hide-details
-              thumb-size="20"
-              track-size="6"
-              class="mt-2"
-            >
-              <template v-slot:prepend>
-                <v-icon size="20" color="grey-lighten-1" @click="imageDuration = Math.max(2, imageDuration - 1)">mdi-minus</v-icon>
-              </template>
-              <template v-slot:append>
-                <v-icon size="20" color="grey-lighten-1" @click="imageDuration = Math.min(20, imageDuration + 1)">mdi-plus</v-icon>
-              </template>
-            </v-slider>
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <p class="font-weight-bold mb-0 text-white">Slide Transition Effects</p>
-              <span class="text-caption text-primary font-weight-bold">{{ selectedTransitions.length }} selected</span>
-            </div>
-            <v-select
-              v-model="selectedTransitions"
-              :items="transitionOptions"
-              item-title="title"
-              item-value="value"
-              multiple
-              variant="outlined"
-              bg-color="rgba(255,255,255,0.05)"
-              color="primary"
-              hide-details
-              class="beautiful-select rounded-lg"
-              menu-icon="mdi-chevron-down"
-              theme="dark"
-              :menu-props="{ contentClass: 'bg-grey-darken-4' }"
-            >
-              <template v-slot:selection="{ item, index }">
-                <v-chip v-if="index < 2" color="primary" size="small" variant="flat" class="font-weight-bold mr-1">
-                  {{ item.raw.title }}
-                </v-chip>
-                <span v-if="index === 2" class="text-caption text-grey-lighten-1 ml-1">
-                  (+{{ selectedTransitions.length - 2 }} others)
-                </span>
-              </template>
-              
-              <template v-slot:item="{ props, item }">
-                <v-list-item
-                  v-bind="props"
-                  title=""
-                  :class="{ 'selected-item': selectedTransitions.includes(item.raw.value) }"
-                  class="transition-list-item"
-                >
-                  <template v-slot:prepend="{ isActive }">
-                    <v-list-item-action start>
-                      <v-checkbox-btn :model-value="isActive" color="primary"></v-checkbox-btn>
-                    </v-list-item-action>
-                    <v-icon :icon="item.raw.icon" :color="isActive ? 'primary' : 'grey-lighten-1'" class="mr-3"></v-icon>
-                  </template>
-                  <v-list-item-title :class="isActive ? 'text-primary font-weight-bold' : 'text-white'">
-                    {{ item.raw.title }}
-                  </v-list-item-title>
-                </v-list-item>
-              </template>
-            </v-select>
-          </v-col>
-        </v-row>
-
-        <v-row class="mt-2">
-          <v-col cols="12" md="6">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <p class="font-weight-bold mb-0 text-white">Transition Duration</p>
-              <span class="text-caption text-warning font-weight-bold">{{ transitionDuration }} seconds</span>
-            </div>
-            <v-slider
-              v-model="transitionDuration"
-              color="warning"
-              track-color="rgba(255,255,255,0.1)"
-              min="0.5"
-              max="3"
-              step="0.5"
-              hide-details
-              thumb-size="20"
-              track-size="6"
-              class="mt-2"
-            >
-              <template v-slot:prepend>
-                <v-icon size="20" color="grey-lighten-1" @click="transitionDuration = Math.max(0.5, transitionDuration - 0.5)">mdi-minus</v-icon>
-              </template>
-              <template v-slot:append>
-                <v-icon size="20" color="grey-lighten-1" @click="transitionDuration = Math.min(3, transitionDuration + 0.5)">mdi-plus</v-icon>
-              </template>
-            </v-slider>
+              <v-btn value="slow" class="flex-grow-1">Slow</v-btn>
+              <v-btn value="normal" class="flex-grow-1">Normal</v-btn>
+              <v-btn value="fast" class="flex-grow-1">Fast</v-btn>
+            </v-btn-toggle>
           </v-col>
         </v-row>
       </div>
@@ -313,7 +198,6 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useMediaApi } from '~/composables/useMediaApi';
 
 const imageInput = ref(null);
 const audioInput = ref(null);
@@ -325,29 +209,9 @@ const imageFiles = ref([]);
 const imagePreviewUrls = ref([]);
 const audioFile = ref(null);
 
-// Settings State (Cinematic Best Practices)
+// Settings State
 const zoomDir = ref('alternate');
-const zoomSpeed = ref(15); // Subtle, slow Ken Burns zoom
-const imageDuration = ref(5); // Gives the viewer time to appreciate the image
-
-const transitionDuration = ref(1.5); // Buttery smooth, slightly longer transition
-const transitionOptions = [
-  { title: 'None (Hard Cut)', value: 'none', icon: 'mdi-format-horizontal-align-center' },
-  { title: 'Smooth Crossfade', value: 'fade', icon: 'mdi-blur' },
-  { title: 'Fade to Black', value: 'fadeblack', icon: 'mdi-moon-waning-crescent' },
-  { title: 'Fade to White', value: 'fadewhite', icon: 'mdi-white-balance-sunny' },
-  { title: 'Wipe Left', value: 'wipeleft', icon: 'mdi-format-horizontal-align-left' },
-  { title: 'Wipe Right', value: 'wiperight', icon: 'mdi-format-horizontal-align-right' },
-  { title: 'Iris Circle Crop', value: 'circlecrop', icon: 'mdi-record-circle-outline' },
-  { title: 'Square Box Crop', value: 'rectcrop', icon: 'mdi-square-outline' },
-  { title: 'Fly Away Warp 🚀', value: 'distance', icon: 'mdi-rocket-launch-outline' },
-  { title: 'Clock Sweep', value: 'radial', icon: 'mdi-clock-outline' },
-  { title: 'Retro Pixelize', value: 'pixelize', icon: 'mdi-checkerboard' },
-  { title: 'Horizontal Blur', value: 'hblur', icon: 'mdi-blur-linear' }
-];
-
-// Default to all selected so it behaves like a massive random mix
-const selectedTransitions = ref(transitionOptions.map(t => t.value));
+const zoomSpeed = ref('normal');
 
 const isGenerating = ref(false);
 const videoUrl = ref(null);
@@ -372,7 +236,6 @@ const onDropImage = (e) => {
 const onSelectImage = (e) => {
   const files = Array.from(e.target.files || []);
   if (files.length > 0) setImages(files);
-  e.target.value = ''; // Reset input to allow selecting same files again if desired
 };
 
 const setImages = (files) => {
@@ -393,18 +256,15 @@ const onDropAudio = (e) => {
 const onSelectAudio = (e) => {
   const file = e.target.files[0];
   if (file) setAudio(file);
-  e.target.value = ''; // Reset input
 };
 
 const setAudio = (file) => {
   audioFile.value = file;
 };
 
-const { createProgressStream, mixImageMontage } = useMediaApi();
-
 // Generation
 const generateVideo = async () => {
-  if (!canGenerate.value || isGenerating.value) return;
+  if (!canGenerate.value) return;
   
   isGenerating.value = true;
   currentProgress.value = 0;
@@ -412,8 +272,9 @@ const generateVideo = async () => {
   
   const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
   
-  // Start SSE connection
-  eventSource = createProgressStream(jobId);
+  // Start SSE connection FIRST before uploading
+  let sseActive = true;
+  eventSource = new EventSource(`http://localhost:3001/api/progress?jobId=${jobId}`);
   
   eventSource.onmessage = (event) => {
     try {
@@ -428,16 +289,14 @@ const generateVideo = async () => {
   };
   
   eventSource.onerror = () => {
-    // SSE errors are normal when connection drops or server restarts
+    // SSE errors are normal when the connection drops. Don't close immediately —
+    // the browser will auto-reconnect. Only close when we're done.
   };
   
   const formData = new FormData();
   formData.append('jobId', jobId);
   formData.append('zoomDir', zoomDir.value);
   formData.append('zoomSpeed', zoomSpeed.value);
-  formData.append('imageDuration', imageDuration.value);
-  formData.append('transitionTypes', JSON.stringify(selectedTransitions.value));
-  formData.append('transitionDuration', transitionDuration.value);
   
   imageFiles.value.forEach(file => {
     formData.append('image', file);
@@ -448,24 +307,39 @@ const generateVideo = async () => {
     currentStatus.value = 'Uploading to server...';
     currentProgress.value = 1;
     
-    const blob = await mixImageMontage(formData);
+    const res = await fetch('http://localhost:3001/api/editor/merge', {
+      method: 'POST',
+      body: formData
+    });
     
+    if (!res.ok) throw new Error('Failed to generate video');
+    
+    // Video is encoded! Now downloading the file to browser...
+    currentProgress.value = 99;
+    currentStatus.value = 'Downloading video to browser...';
+    
+    const blob = await res.blob();
+    
+    // Blob fully received!
     currentProgress.value = 100;
     currentStatus.value = '✅ Video Ready!';
     videoUrl.value = URL.createObjectURL(blob);
-    isGenerating.value = false;
+    
   } catch (err) {
     console.error('Video generation error:', err);
-    currentStatus.value = `❌ ${err.message || 'Failed to generate video'}`;
+    currentStatus.value = '❌ Failed to generate video';
     currentProgress.value = 0;
     setTimeout(() => {
       isGenerating.value = false;
-    }, 4000);
+    }, 2000);
+    return;
   } finally {
+    sseActive = false;
     if (eventSource) {
       eventSource.close();
       eventSource = null;
     }
+    isGenerating.value = false;
   }
 };
 
@@ -541,49 +415,12 @@ const resetEditor = () => {
 }
 
 .glass-card {
-  background: rgba(20, 20, 25, 0.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
-}
-.glass-card:hover {
-  border-color: rgba(255,255,255,0.15);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
-}
-
-.modern-header {
-  text-align: center;
-  padding: 40px 20px 50px;
-  background: radial-gradient(circle at top, rgba(132, 94, 194, 0.15), transparent 60%);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  border-radius: 0 0 40px 40px;
-  margin-bottom: 40px;
-}
-
-.gradient-text {
-  background: linear-gradient(135deg, #FF6B6B, #845EC2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.icon-box {
-  background: rgba(132, 94, 194, 0.1) !important;
-  border: 1px solid rgba(132, 94, 194, 0.3);
-  box-shadow: 0 0 20px rgba(132, 94, 194, 0.2);
-}
-
-.floating-icon {
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  background: rgba(25, 25, 35, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .settings-panel {
@@ -754,31 +591,6 @@ const resetEditor = () => {
   height: 64px !important;
   border-radius: 32px !important;
   transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.action-buttons .v-btn {
-  text-transform: none;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-/* Beautiful Select Styles */
-.beautiful-select {
-  transition: all 0.3s ease;
-}
-.beautiful-select:hover {
-  box-shadow: 0 0 15px rgba(var(--v-theme-primary), 0.15);
-}
-.transition-list-item {
-  padding: 12px 16px !important;
-  transition: background 0.2s ease;
-}
-.transition-list-item:hover {
-  background: rgba(var(--v-theme-primary), 0.1) !important;
-}
-.selected-item {
-  background: rgba(var(--v-theme-primary), 0.15) !important;
-  border-left: 3px solid rgb(var(--v-theme-primary));
 }
 
 .generate-btn:not(:disabled):hover {

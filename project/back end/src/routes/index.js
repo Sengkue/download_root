@@ -8,7 +8,6 @@ import searchRoutes from './search.routes.js';
 import lyricsRoutes from './lyrics.routes.js';
 import typingRoutes from './typing.routes.js';
 import editorRoutes from './editor.routes.js';
-import videoMixerRoutes from './video-mixer.routes.js';
 
 const router = express.Router();
 
@@ -19,7 +18,6 @@ router.use('/chat', chatRoutes);
 router.use('/search', searchRoutes);
 router.use('/lyrics', lyricsRoutes);
 router.use('/editor', editorRoutes);
-router.use('/video-mixer', videoMixerRoutes);
 
 // These routers define top-level /api endpoints (e.g. /api/download, /api/info, /api/typing-lessons)
 router.use('/', downloadRoutes);

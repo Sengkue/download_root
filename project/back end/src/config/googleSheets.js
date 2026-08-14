@@ -53,18 +53,8 @@ export const connectGoogleSheets = async () => {
 
       let typingResultsSheet = doc.sheetsByTitle['TypingResults'];
       if (!typingResultsSheet) {
-        typingResultsSheet = await doc.addSheet({ title: 'TypingResults', headerValues: ['Date', 'Username', 'LessonTitle', 'WPM', 'CPM', 'Accuracy', 'TimeSeconds'] });
+        typingResultsSheet = await doc.addSheet({ title: 'TypingResults', headerValues: ['Date', 'LessonTitle', 'CPM', 'WPM', 'Accuracy'] });
         console.log('✅ Created TypingResults sheet.');
-      } else {
-        try {
-          await typingResultsSheet.loadHeaderRow();
-          if (!typingResultsSheet.headerValues.includes('Username')) {
-            await typingResultsSheet.setHeaderRow(['Date', 'Username', 'LessonTitle', 'WPM', 'CPM', 'Accuracy', 'TimeSeconds']);
-            console.log('✅ Updated TypingResults headers to include Username.');
-          }
-        } catch (e) {
-          // ignore if already set
-        }
       }
     } catch (sheetErr) {
       console.error('⚠️ Could not setup Typing Test sheets (might be permission issue):', sheetErr.message);
@@ -134,54 +124,14 @@ export const getTypingLessons = async () => {
   }));
 };
 
-export const saveTypingResult = async (username, lessonTitle, cpm, wpm, accuracy, timeSeconds) => {
+export const saveTypingResult = async (lessonTitle, cpm, wpm, accuracy) => {
   if (!isConnected) return false;
   const sheet = doc.sheetsByTitle['TypingResults'];
   if (!sheet) return false;
   
   const date = new Date().toISOString();
-  await sheet.addRow({ 
-    Date: date, 
-    Username: username || 'Anonymous', 
-    LessonTitle: lessonTitle, 
-    WPM: wpm, 
-    CPM: cpm, 
-    Accuracy: accuracy,
-    TimeSeconds: timeSeconds || ''
-  });
+  await sheet.addRow({ Date: date, LessonTitle: lessonTitle, CPM: cpm, WPM: wpm, Accuracy: accuracy });
   return true;
-};
-
-export const getTypingLeaderboard = async (lessonTitle) => {
-  if (!isConnected) return [];
-  const sheet = doc.sheetsByTitle['TypingResults'];
-  if (!sheet) return [];
-  
-  const rows = await sheet.getRows();
-  let results = rows.map((row, idx) => {
-    return {
-      id: idx + 1,
-      date: row.get('Date') || '',
-      username: row.get('Username') || row.get('User') || 'Anonymous',
-      lessonTitle: row.get('LessonTitle') || '',
-      wpm: Number(row.get('WPM')) || 0,
-      cpm: Number(row.get('CPM')) || 0,
-      accuracy: Number(row.get('Accuracy')) || 0,
-      timeSeconds: row.get('TimeSeconds') || ''
-    };
-  });
-
-  if (lessonTitle && lessonTitle !== 'All') {
-    results = results.filter(r => r.lessonTitle === lessonTitle);
-  }
-
-  // Sort by WPM descending, then accuracy descending
-  results.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy);
-
-  return results.map((item, index) => ({
-    rank: index + 1,
-    ...item
-  }));
 };
 
 export const addTypingLesson = async (title, content) => {
@@ -194,34 +144,4 @@ export const addTypingLesson = async (title, content) => {
   
   const row = await sheet.addRow({ LessonID: nextId, Title: title, Content: content });
   return { id: nextId, title, content };
-};
-
-export const updateTypingLesson = async (id, title, content) => {
-  if (!isConnected) return false;
-  const sheet = doc.sheetsByTitle['TypingLessons'];
-  if (!sheet) return false;
-  
-  const rows = await sheet.getRows();
-  const row = rows.find(r => r.get('LessonID') === id);
-  if (row) {
-    row.set('Title', title);
-    row.set('Content', content);
-    await row.save();
-    return true;
-  }
-  return false;
-};
-
-export const deleteTypingLesson = async (id) => {
-  if (!isConnected) return false;
-  const sheet = doc.sheetsByTitle['TypingLessons'];
-  if (!sheet) return false;
-  
-  const rows = await sheet.getRows();
-  const row = rows.find(r => r.get('LessonID') === id);
-  if (row) {
-    await row.delete();
-    return true;
-  }
-  return false;
 };

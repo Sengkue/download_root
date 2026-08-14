@@ -96,35 +96,35 @@ const props = defineProps({
   }
 });
 
-// Standard English QWERTY Keyboard Mapping
+// Accurate Standard Lao Keyboard Mapping (Kedmanee)
 const row1 = [
-  { base: '`', shift: '~', finger: 'lp' }, { base: '1', shift: '!', finger: 'lp' }, { base: '2', shift: '@', finger: 'lp' }, { base: '3', shift: '#', finger: 'lr' },
-  { base: '4', shift: '$', finger: 'lm' }, { base: '5', shift: '%', finger: 'li' }, { base: '6', shift: '^', finger: 'ri' }, { base: '7', shift: '&', finger: 'ri' },
-  { base: '8', shift: '*', finger: 'rm' }, { base: '9', shift: '(', finger: 'rr' }, { base: '0', shift: ')', finger: 'rp' }, { base: '-', shift: '_', finger: 'rp' },
-  { base: '=', shift: '+', finger: 'rp' }, { base: 'Backspace', isSpecial: true, width: 'wide', finger: 'rp' }
+  { base: '*', shift: '?', finger: 'lp' }, { base: 'ຢ', shift: '1', finger: 'lp' }, { base: 'ຟ', shift: '2', finger: 'lp' }, { base: 'ໂ', shift: '3', finger: 'lr' },
+  { base: 'ຖ', shift: '4', finger: 'lm' }, { base: 'ຸ', shift: '໌', finger: 'li' }, { base: 'ູ', shift: 'ຼ', finger: 'ri' }, { base: 'ຄ', shift: '5', finger: 'ri' },
+  { base: 'ຕ', shift: '6', finger: 'rm' }, { base: 'ຈ', shift: '7', finger: 'rr' }, { base: 'ຂ', shift: '8', finger: 'rp' }, { base: 'ຊ', shift: '9', finger: 'rp' },
+  { base: 'ໍ', shift: '0', finger: 'rp' }, { base: 'Backspace', isSpecial: true, width: 'wide', finger: 'rp' }
 ];
 
 const row2 = [
   { base: 'Tab', isSpecial: true, width: 'medium', finger: 'lp' },
-  { base: 'q', shift: 'Q', finger: 'lp' }, { base: 'w', shift: 'W', finger: 'lr' }, { base: 'e', shift: 'E', finger: 'lm' }, { base: 'r', shift: 'R', finger: 'li' },
-  { base: 't', shift: 'T', finger: 'li' }, { base: 'y', shift: 'Y', finger: 'ri' }, { base: 'u', shift: 'U', finger: 'ri' }, { base: 'i', shift: 'I', finger: 'rm' },
-  { base: 'o', shift: 'O', finger: 'rr' }, { base: 'p', shift: 'P', finger: 'rp' }, { base: '[', shift: '{', finger: 'rp' }, { base: ']', shift: '}', finger: 'rp' },
-  { base: '\\', shift: '|', width: 'medium', finger: 'rp' }
+  { base: 'ົ', shift: 'ັ', finger: 'lp' }, { base: 'ໄ', shift: 'ໝ', finger: 'lp' }, { base: 'ຳ', shift: 'ໜ', finger: 'lr' }, { base: 'ພ', shift: 'ຣ', finger: 'lm' },
+  { base: 'ະ', shift: '໋', finger: 'li' }, { base: 'ິ', shift: 'ຶ', finger: 'ri' }, { base: 'ີ', shift: 'ື', finger: 'ri' }, { base: 'ຮ', shift: 'ໍ', finger: 'rm' },
+  { base: 'ນ', shift: 'ຯ', finger: 'rr' }, { base: 'ຍ', shift: 'ໆ', finger: 'rp' }, { base: 'ບ', shift: '-', finger: 'rp' }, { base: 'ລ', shift: '×', finger: 'rp' },
+  { base: 'ຫຼ', shift: '÷', width: 'medium', finger: 'rp' }
 ];
 
 const row3 = [
   { base: 'Caps Lock', isSpecial: true, width: 'wide', finger: 'lp' },
-  { base: 'a', shift: 'A', finger: 'lp' }, { base: 's', shift: 'S', finger: 'lr' }, { base: 'd', shift: 'D', finger: 'lm' }, { base: 'f', shift: 'F', finger: 'li' },
-  { base: 'g', shift: 'G', finger: 'li' }, { base: 'h', shift: 'H', finger: 'ri' }, { base: 'j', shift: 'J', finger: 'ri' }, { base: 'k', shift: 'K', finger: 'rm' },
-  { base: 'l', shift: 'L', finger: 'rr' }, { base: ';', shift: ':', finger: 'rp' }, { base: "'", shift: '\"', finger: 'rp' },
+  { base: 'ັ', shift: 'ັ້', finger: 'lp' }, { base: 'ຫ', shift: ';', finger: 'lp' }, { base: 'ກ', shift: '.', finger: 'lr' }, { base: 'ດ', shift: ',', finger: 'lm' },
+  { base: 'ເ', shift: ':', finger: 'li' }, { base: '້', shift: '໊', finger: 'ri' }, { base: '່', shift: '໋', finger: 'ri' }, { base: 'າ', shift: '!', finger: 'rm' },
+  { base: 'ສ', shift: '?', finger: 'rr' }, { base: 'ວ', shift: '%', finger: 'rp' }, { base: 'ງ', shift: '=', finger: 'rp' },
   { base: 'Enter', isSpecial: true, width: 'wide', finger: 'rp' }
 ];
 
 const row4 = [
   { base: 'Shift', isSpecial: true, width: 'extra-wide', isShift: true, finger: 'lp' },
-  { base: 'z', shift: 'Z', finger: 'lp' }, { base: 'x', shift: 'X', finger: 'lr' }, { base: 'c', shift: 'C', finger: 'lm' }, { base: 'v', shift: 'V', finger: 'li' },
-  { base: 'b', shift: 'B', finger: 'li' }, { base: 'n', shift: 'N', finger: 'ri' }, { base: 'm', shift: 'M', finger: 'ri' }, { base: ',', shift: '<', finger: 'rm' },
-  { base: '.', shift: '>', finger: 'rr' }, { base: '/', shift: '?', finger: 'rp' },
+  { base: 'ຜ', shift: '"', finger: 'lp' }, { base: 'ປ', shift: '(', finger: 'lp' }, { base: 'ແ', shift: ')', finger: 'lr' }, { base: 'ອ', shift: 'ຊ', finger: 'lm' },
+  { base: 'ຶ', shift: 'ຽ', finger: 'li' }, { base: 'ື', shift: '໌', finger: 'ri' }, { base: 'ທ', shift: 'ໝ', finger: 'ri' }, { base: 'ມ', shift: 'ໝ', finger: 'rm' },
+  { base: 'ໃ', shift: '$', finger: 'rr' }, { base: 'ຝ', shift: '+', finger: 'rp' },
   { base: 'Shift', isSpecial: true, width: 'wide', isShift: true, finger: 'rp' }
 ];
 
@@ -231,7 +231,7 @@ const getKeyClass = (key) => {
   justify-content: center;
   position: relative;
   height: 54px;
-  font-family: sans-serif;
+  font-family: 'Noto Sans Lao', sans-serif;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 3px 0 #000, 0 4px 6px rgba(0,0,0,0.5);

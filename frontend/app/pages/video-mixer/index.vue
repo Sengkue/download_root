@@ -1,40 +1,39 @@
 <template>
   <div class="editor-container">
 
-
     <div class="workspace">
       <!-- Upload Zones -->
       <div v-if="!videoUrl" class="upload-zones">
         
-        <!-- Image Drop Zone -->
+        <!-- Video Drop Zone -->
         <div 
           class="drop-zone glass-card"
-          :class="{ 'drag-over': isDraggingImage, 'has-file': imageFiles.length > 0 }"
-          @dragover.prevent="isDraggingImage = true"
-          @dragleave.prevent="isDraggingImage = false"
-          @drop.prevent="onDropImage"
-          @click="$refs.imageInput.click()"
+          :class="{ 'drag-over': isDraggingVideo, 'has-file': videoFiles.length > 0 }"
+          @dragover.prevent="isDraggingVideo = true"
+          @dragleave.prevent="isDraggingVideo = false"
+          @drop.prevent="onDropVideo"
+          @click="$refs.videoInput.click()"
         >
-          <input type="file" ref="imageInput" accept="image/*" multiple class="d-none" @change="onSelectImage" @click.stop />
+          <input type="file" ref="videoInput" accept="video/*" multiple class="d-none" @change="onSelectVideo" @click.stop />
           
-          <div v-if="imageFiles.length === 0" class="zone-placeholder">
-            <v-icon icon="mdi-image-multiple-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
-            <h3>Image Track</h3>
-            <p>Drag & Drop multiple images or Click to browse</p>
+          <div v-if="videoFiles.length === 0" class="zone-placeholder">
+            <v-icon icon="mdi-video-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
+            <h3>Video Track</h3>
+            <p>Drag & Drop multiple videos or Click to browse</p>
           </div>
           
           <div v-else class="zone-preview multi-preview">
             <div class="gallery-grid">
-              <div v-for="(url, index) in imagePreviewUrls.slice(0, 4)" :key="index" class="gallery-item">
-                <img :src="url" alt="Preview" class="preview-img-small" />
+              <div v-for="(url, index) in videoPreviewUrls.slice(0, 4)" :key="index" class="gallery-item">
+                <video :src="url" class="preview-img-small" muted loop autoplay></video>
               </div>
-              <div v-if="imageFiles.length > 4" class="more-indicator">
-                +{{ imageFiles.length - 4 }}
+              <div v-if="videoFiles.length > 4" class="more-indicator">
+                +{{ videoFiles.length - 4 }}
               </div>
             </div>
             <div class="file-overlay">
               <v-icon icon="mdi-check-circle" color="success" size="32"></v-icon>
-              <span>{{ imageFiles.length }} Image(s) selected</span>
+              <span>{{ videoFiles.length }} Video(s) selected</span>
               <small>(Click to replace)</small>
             </div>
           </div>
@@ -53,8 +52,8 @@
           
           <div v-if="!audioFile" class="zone-placeholder">
             <v-icon icon="mdi-music-note-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
-            <h3>Audio Track</h3>
-            <p>Drag & Drop or Click to browse</p>
+            <h3>New Audio Track</h3>
+            <p>Drag & Drop an audio file or Click to browse</p>
           </div>
           
           <div v-else class="zone-preview audio-preview">
@@ -75,86 +74,34 @@
             <v-icon icon="mdi-movie-filter" color="primary" size="28"></v-icon>
           </div>
           <div>
-            <h3 class="text-h5 font-weight-bold text-white mb-0">Cinematic Effects</h3>
-            <p class="text-caption text-grey-lighten-1 mb-0">Fine-tune your masterpiece settings</p>
+            <h3 class="text-h5 font-weight-bold text-white mb-0">Montage Settings</h3>
+            <p class="text-caption text-grey-lighten-1 mb-0">Fine-tune speed and transitions</p>
           </div>
         </div>
         
         <v-row>
           <v-col cols="12" md="6">
-            <p class="font-weight-bold mb-2 text-white">Zoom Direction (Ken Burns)</p>
-            <v-btn-toggle
-              v-model="zoomDir"
-              color="primary"
-              mandatory
-              class="w-100 btn-group-custom"
-            >
-              <v-btn value="in" class="flex-grow-1">
-                <v-icon start>mdi-magnify-plus</v-icon> In
-              </v-btn>
-              <v-btn value="out" class="flex-grow-1">
-                <v-icon start>mdi-magnify-minus</v-icon> Out
-              </v-btn>
-              <v-btn value="alternate" class="flex-grow-1">
-                <v-icon start>mdi-swap-horizontal</v-icon> Switch
-              </v-btn>
-              <v-btn value="none" class="flex-grow-1">
-                <v-icon start>mdi-cancel</v-icon> None
-              </v-btn>
-            </v-btn-toggle>
-          </v-col>
-          
-          <v-col cols="12" md="6">
             <div class="d-flex justify-space-between align-center mb-2">
-              <p class="font-weight-bold mb-0 text-white">Zoom Intensity</p>
-              <span class="text-caption text-secondary font-weight-bold">{{ zoomSpeed }}%</span>
+              <p class="font-weight-bold mb-0 text-white">Video Speed</p>
+              <span class="text-caption text-success font-weight-bold">{{ videoSpeed }}x</span>
             </div>
             <v-slider
-              v-model="zoomSpeed"
-              :disabled="zoomDir === 'none'"
-              color="secondary"
-              track-color="rgba(255,255,255,0.1)"
-              min="5"
-              max="100"
-              step="1"
-              hide-details
-              thumb-size="20"
-              track-size="6"
-              class="mt-2"
-            >
-              <template v-slot:prepend>
-                <v-icon size="20" color="grey-lighten-1" @click="zoomSpeed = Math.max(5, zoomSpeed - 5)">mdi-minus</v-icon>
-              </template>
-              <template v-slot:append>
-                <v-icon size="20" color="grey-lighten-1" @click="zoomSpeed = Math.min(100, zoomSpeed + 5)">mdi-plus</v-icon>
-              </template>
-            </v-slider>
-          </v-col>
-        </v-row>
-
-        <v-row class="mt-2">
-          <v-col cols="12" md="6">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <p class="font-weight-bold mb-0 text-white">Time per Image</p>
-              <span class="text-caption text-success font-weight-bold">{{ imageDuration }} seconds</span>
-            </div>
-            <v-slider
-              v-model="imageDuration"
+              v-model="videoSpeed"
               color="success"
               track-color="rgba(255,255,255,0.1)"
-              min="2"
-              max="20"
-              step="1"
+              min="0.1"
+              max="10.0"
+              step="0.1"
               hide-details
               thumb-size="20"
               track-size="6"
               class="mt-2"
             >
               <template v-slot:prepend>
-                <v-icon size="20" color="grey-lighten-1" @click="imageDuration = Math.max(2, imageDuration - 1)">mdi-minus</v-icon>
+                <v-icon size="20" color="grey-lighten-1" @click="videoSpeed = Math.max(0.1, Number((videoSpeed - 0.1).toFixed(1)))">mdi-minus</v-icon>
               </template>
               <template v-slot:append>
-                <v-icon size="20" color="grey-lighten-1" @click="imageDuration = Math.min(20, imageDuration + 1)">mdi-plus</v-icon>
+                <v-icon size="20" color="grey-lighten-1" @click="videoSpeed = Math.min(10.0, Number((videoSpeed + 0.1).toFixed(1)))">mdi-plus</v-icon>
               </template>
             </v-slider>
           </v-col>
@@ -236,6 +183,18 @@
               </template>
             </v-slider>
           </v-col>
+
+          <v-col cols="12" md="6" class="d-flex align-center">
+            <v-switch
+              v-model="keepOriginalAudio"
+              :disabled="videoFiles.length > 1"
+              :label="videoFiles.length > 1 ? 'Original sound disabled (Multi-video)' : 'Keep Original Video Sound'"
+              color="success"
+              inset
+              hide-details
+              class="font-weight-bold text-white"
+            ></v-switch>
+          </v-col>
         </v-row>
       </div>
 
@@ -243,7 +202,7 @@
       <div v-if="videoUrl" class="result-view glass-card">
         <h3 class="mb-4 d-flex align-center gap-2">
           <v-icon icon="mdi-movie-open-check" color="success"></v-icon>
-          Your Video is Ready
+          Mixed Video is Ready
         </h3>
         
         <video controls class="final-video">
@@ -257,10 +216,10 @@
             color="white"
             variant="outlined"
             prepend-icon="mdi-refresh"
-            @click="resetEditor"
+            @click="resetMixer"
             class="action-btn"
           >
-            Make Another
+            Mix Another
           </v-btn>
           <v-btn
             size="large"
@@ -269,41 +228,42 @@
             @click="downloadVideo"
             class="action-btn download-btn"
           >
-            Download Video
+            Download Final Video
           </v-btn>
         </div>
       </div>
 
-      <!-- Generate Action with Progress Bar -->
-      <div v-if="!videoUrl" class="generate-section mt-8">
+      <!-- Generate Section -->
+      <div v-if="!videoUrl" class="generate-section">
         <v-btn
-          v-if="!isGenerating"
           size="x-large"
-          class="generate-btn"
-          :disabled="!canGenerate"
+          color="primary"
+          :disabled="!canGenerate || isGenerating"
+          :loading="isGenerating"
           @click="generateVideo"
+          class="generate-btn"
+          elevation="8"
         >
-          <v-icon icon="mdi-magic-staff" class="mr-2" />
-          Generate Video
+          <template v-slot:prepend>
+            <v-icon icon="mdi-magic-staff"></v-icon>
+          </template>
+          MIX VIDEO & AUDIO INSTANTLY
         </v-btn>
         
-        <div v-else class="progress-section glass-card pa-6">
-          <div class="d-flex justify-space-between align-center mb-3">
-            <span class="font-weight-bold text-white text-body-1">{{ currentStatus }}</span>
-            <span class="progress-percent">{{ Math.round(currentProgress) }}%</span>
+        <div v-if="isGenerating" class="progress-section mt-8">
+          <div class="d-flex justify-space-between align-center mb-2">
+            <span class="text-subtitle-1 text-white">{{ currentStatus }}</span>
+            <span class="progress-percent">{{ currentProgress }}%</span>
           </div>
           <v-progress-linear
-            :model-value="currentProgress"
+            v-model="currentProgress"
             color="primary"
-            height="14"
+            height="12"
             rounded
-            striped
-            animated
-            class="progress-bar-smooth"
+            class="progress-bar-smooth bg-grey-darken-3"
           ></v-progress-linear>
-          <p class="text-caption text-grey-lighten-1 mt-3 mb-0 text-center">
-            <v-icon icon="mdi-information-outline" size="14" class="mr-1"></v-icon>
-            Applying cinematic effects — this may take a minute for many images.
+          <p class="text-caption text-grey-lighten-1 mt-2 text-center">
+            Stream copying video data... (Ultra-fast processing)
           </p>
         </div>
       </div>
@@ -312,25 +272,23 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useMediaApi } from '~/composables/useMediaApi';
 
-const imageInput = ref(null);
+const videoInput = ref(null);
 const audioInput = ref(null);
 
-const isDraggingImage = ref(false);
+const isDraggingVideo = ref(false);
 const isDraggingAudio = ref(false);
 
-const imageFiles = ref([]);
-const imagePreviewUrls = ref([]);
+const videoFile = ref(null);
+const videoFiles = ref([]);
+const videoPreviewUrls = ref([]);
 const audioFile = ref(null);
 
-// Settings State (Cinematic Best Practices)
-const zoomDir = ref('alternate');
-const zoomSpeed = ref(15); // Subtle, slow Ken Burns zoom
-const imageDuration = ref(5); // Gives the viewer time to appreciate the image
-
-const transitionDuration = ref(1.5); // Buttery smooth, slightly longer transition
+const videoSpeed = ref(1.0);
+const transitionDuration = ref(1.0);
+const keepOriginalAudio = ref(false);
 const transitionOptions = [
   { title: 'None (Hard Cut)', value: 'none', icon: 'mdi-format-horizontal-align-center' },
   { title: 'Smooth Crossfade', value: 'fade', icon: 'mdi-blur' },
@@ -346,125 +304,118 @@ const transitionOptions = [
   { title: 'Horizontal Blur', value: 'hblur', icon: 'mdi-blur-linear' }
 ];
 
-// Default to all selected so it behaves like a massive random mix
 const selectedTransitions = ref(transitionOptions.map(t => t.value));
 
 const isGenerating = ref(false);
 const videoUrl = ref(null);
 
-// Progress State
 const currentProgress = ref(0);
 const currentStatus = ref('');
 let eventSource = null;
 
-const canGenerate = computed(() => imageFiles.value.length > 0 && audioFile.value);
+const canGenerate = computed(() => videoFiles.value.length > 0);
 
-// Image Handlers
-const onDropImage = (e) => {
-  isDraggingImage.value = false;
-  const files = Array.from(e.dataTransfer?.files || []);
-  const validFiles = files.filter(f => f.type.startsWith('image/'));
+const handleVideoFiles = (files) => {
+  const validFiles = files.filter(f => f.type.startsWith('video/'));
   if (validFiles.length > 0) {
-    setImages(validFiles);
+    videoFiles.value = validFiles;
+    videoPreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
+    videoPreviewUrls.value = validFiles.map(file => URL.createObjectURL(file));
   }
 };
 
-const onSelectImage = (e) => {
+const onDropVideo = (e) => {
+  isDraggingVideo.value = false;
+  const files = Array.from(e.dataTransfer?.files || []);
+  handleVideoFiles(files);
+};
+
+const onSelectVideo = (e) => {
   const files = Array.from(e.target.files || []);
-  if (files.length > 0) setImages(files);
-  e.target.value = ''; // Reset input to allow selecting same files again if desired
+  handleVideoFiles(files);
 };
 
-const setImages = (files) => {
-  imagePreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
-  imageFiles.value = files;
-  imagePreviewUrls.value = files.map(f => URL.createObjectURL(f));
-};
-
-// Audio Handlers
 const onDropAudio = (e) => {
   isDraggingAudio.value = false;
-  const file = e.dataTransfer?.files[0];
-  if (file && file.type.startsWith('audio/')) {
-    setAudio(file);
+  const files = Array.from(e.dataTransfer?.files || []);
+  if (files.length > 0 && files[0].type.startsWith('audio/')) {
+    audioFile.value = files[0];
   }
 };
 
 const onSelectAudio = (e) => {
-  const file = e.target.files[0];
-  if (file) setAudio(file);
-  e.target.value = ''; // Reset input
+  const files = Array.from(e.target.files || []);
+  if (files.length > 0) {
+    audioFile.value = files[0];
+  }
 };
 
-const setAudio = (file) => {
-  audioFile.value = file;
+const resetMixer = () => {
+  videoFiles.value = [];
+  videoPreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
+  videoPreviewUrls.value = [];
+  audioFile.value = null;
+  videoUrl.value = null;
+  currentProgress.value = 0;
+  currentStatus.value = '';
+  if (videoInput.value) videoInput.value.value = '';
+  if (audioInput.value) audioInput.value.value = '';
 };
 
-const { createProgressStream, mixImageMontage } = useMediaApi();
+const { createProgressStream, mixVideoMontage } = useMediaApi();
 
-// Generation
 const generateVideo = async () => {
-  if (!canGenerate.value || isGenerating.value) return;
-  
+  if (!canGenerate.value) return;
+
   isGenerating.value = true;
   currentProgress.value = 0;
-  currentStatus.value = 'Uploading files...';
-  
-  const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-  
-  // Start SSE connection
+  currentStatus.value = 'Initializing high-speed mixer...';
+  const jobId = Date.now().toString();
+
+  // Setup SSE
   eventSource = createProgressStream(jobId);
-  
   eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.progress !== undefined && data.progress > currentProgress.value) {
-        currentProgress.value = data.progress;
-      }
-      if (data.status) {
-        currentStatus.value = data.status;
-      }
-    } catch (_) {}
+    const data = JSON.parse(event.data);
+    if (data.progress) currentProgress.value = Math.min(99, Math.round(data.progress));
+    if (data.status) currentStatus.value = data.status;
   };
-  
   eventSource.onerror = () => {
-    // SSE errors are normal when connection drops or server restarts
+    eventSource.close();
   };
-  
+
   const formData = new FormData();
   formData.append('jobId', jobId);
-  formData.append('zoomDir', zoomDir.value);
-  formData.append('zoomSpeed', zoomSpeed.value);
-  formData.append('imageDuration', imageDuration.value);
-  formData.append('transitionTypes', JSON.stringify(selectedTransitions.value));
+  formData.append('videoSpeed', videoSpeed.value);
   formData.append('transitionDuration', transitionDuration.value);
+  formData.append('transitionTypes', JSON.stringify(selectedTransitions.value));
+  formData.append('keepOriginalAudio', keepOriginalAudio.value);
   
-  imageFiles.value.forEach(file => {
-    formData.append('image', file);
+  videoFiles.value.forEach(file => {
+    formData.append('video', file);
   });
-  formData.append('audio', audioFile.value);
   
+  if (audioFile.value) {
+    formData.append('audio', audioFile.value);
+  }
+
   try {
-    currentStatus.value = 'Uploading to server...';
-    currentProgress.value = 1;
-    
-    const blob = await mixImageMontage(formData);
-    
+    const blob = await mixVideoMontage(formData);
+
     currentProgress.value = 100;
-    currentStatus.value = '✅ Video Ready!';
-    videoUrl.value = URL.createObjectURL(blob);
-    isGenerating.value = false;
-  } catch (err) {
-    console.error('Video generation error:', err);
-    currentStatus.value = `❌ ${err.message || 'Failed to generate video'}`;
-    currentProgress.value = 0;
+    currentStatus.value = 'Mixing Complete!';
+    
     setTimeout(() => {
+      videoUrl.value = URL.createObjectURL(blob);
       isGenerating.value = false;
-    }, 4000);
+    }, 500);
+
+  } catch (error) {
+    console.error('Generation failed:', error);
+    currentStatus.value = 'Failed: ' + (error.data?.error || error.message);
+    isGenerating.value = false;
   } finally {
     if (eventSource) {
       eventSource.close();
-      eventSource = null;
     }
   }
 };
@@ -473,71 +424,24 @@ const downloadVideo = () => {
   if (!videoUrl.value) return;
   const a = document.createElement('a');
   a.href = videoUrl.value;
-  a.download = `fused-slideshow-${Date.now()}.mp4`;
+  a.download = `Mixed_Video_${Date.now()}.mp4`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 };
 
-const resetEditor = () => {
-  imageFiles.value = [];
-  audioFile.value = null;
-  imagePreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
-  imagePreviewUrls.value = [];
-  
+onUnmounted(() => {
+  if (eventSource) eventSource.close();
   if (videoUrl.value) URL.revokeObjectURL(videoUrl.value);
-  videoUrl.value = null;
-  
-  if (imageInput.value) imageInput.value.value = '';
-  if (audioInput.value) audioInput.value.value = '';
-};
+  videoPreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
+});
 </script>
 
 <style scoped>
 .editor-container {
-  padding: 32px;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  min-height: calc(100vh - 100px);
-  display: flex;
-  flex-direction: column;
-}
-
-.glass-header {
-  background: rgba(25, 25, 35, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 24px;
-  padding: 32px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  margin-bottom: 48px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.header-icon-box {
-  background: linear-gradient(135deg, #FF6B6B 0%, #845EC2 100%);
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(132, 94, 194, 0.4);
-}
-
-.header-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: white;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.header-subtitle {
-  color: rgba(255, 255, 255, 0.7);
-  margin: 8px 0 0;
-  font-size: 1.1rem;
+  padding: 0 24px 64px;
 }
 
 .glass-card {
@@ -549,6 +453,7 @@ const resetEditor = () => {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
 }
+
 .glass-card:hover {
   border-color: rgba(255,255,255,0.15);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
@@ -570,12 +475,6 @@ const resetEditor = () => {
   background-clip: text;
 }
 
-.icon-box {
-  background: rgba(132, 94, 194, 0.1) !important;
-  border: 1px solid rgba(132, 94, 194, 0.3);
-  box-shadow: 0 0 20px rgba(132, 94, 194, 0.2);
-}
-
 .floating-icon {
   animation: float 3s ease-in-out infinite;
 }
@@ -584,21 +483,6 @@ const resetEditor = () => {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
   100% { transform: translateY(0px); }
-}
-
-.settings-panel {
-  padding: 24px 32px;
-}
-
-.btn-group-custom {
-  border-radius: 12px;
-  background: rgba(0,0,0,0.2) !important;
-}
-.btn-group-custom .v-btn {
-  border: none !important;
-}
-.btn-group-custom .v-btn--active {
-  background: rgba(132, 94, 194, 0.2) !important;
 }
 
 .upload-zones {
@@ -614,16 +498,14 @@ const resetEditor = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   position: relative;
-  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.15);
 }
 
 .drop-zone:hover {
-  border-color: rgba(132, 94, 194, 0.5);
-  background: rgba(132, 94, 194, 0.05);
-  transform: translateY(-4px);
+  border-color: #845EC2;
+  box-shadow: inset 0 0 30px rgba(132, 94, 194, 0.1);
 }
 
 .drop-zone.drag-over {
@@ -657,49 +539,6 @@ const resetEditor = () => {
   width: 100%;
   height: 100%;
   position: relative;
-}
-
-.multi-preview {
-  padding: 16px;
-  background: rgba(0,0,0,0.2);
-}
-
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
-  width: 100%;
-  height: 100%;
-}
-
-.gallery-item {
-  width: 100%;
-  height: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-}
-
-.preview-img-small {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.more-indicator {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0,0,0,0.7);
-  color: white;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
 }
 
 .audio-preview {
@@ -756,31 +595,6 @@ const resetEditor = () => {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.action-buttons .v-btn {
-  text-transform: none;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-/* Beautiful Select Styles */
-.beautiful-select {
-  transition: all 0.3s ease;
-}
-.beautiful-select:hover {
-  box-shadow: 0 0 15px rgba(var(--v-theme-primary), 0.15);
-}
-.transition-list-item {
-  padding: 12px 16px !important;
-  transition: background 0.2s ease;
-}
-.transition-list-item:hover {
-  background: rgba(var(--v-theme-primary), 0.1) !important;
-}
-.selected-item {
-  background: rgba(var(--v-theme-primary), 0.15) !important;
-  border-left: 3px solid rgb(var(--v-theme-primary));
-}
-
 .generate-btn:not(:disabled):hover {
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 8px 24px rgba(132, 94, 194, 0.4);
@@ -794,7 +608,6 @@ const resetEditor = () => {
 .progress-section {
   max-width: 600px;
   margin: 0 auto;
-  animation: fadeIn 0.4s ease-out;
 }
 
 .progress-percent {
@@ -840,30 +653,14 @@ const resetEditor = () => {
   letter-spacing: 0.5px !important;
 }
 
-.download-btn {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important;
-  color: white !important;
-}
-
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  0% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 0.5; }
 }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 768px) {
-  .upload-zones {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

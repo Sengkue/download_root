@@ -19,42 +19,8 @@
         <v-list-item to="/downloader/media" prepend-icon="mdi-video" title="Media Downloader" value="media" color="red"></v-list-item>
         <v-list-item to="/downloader/stock" prepend-icon="mdi-magnify" title="Stock Search" value="search" color="blue"></v-list-item>
         <v-list-item to="/webview-manager" prepend-icon="mdi-table-large" title="Webview Manager" value="webview" color="teal"></v-list-item>
-        <v-list-group value="Typing">
-          <template v-slot:activator="{ props }">
-            <v-list-item
-              v-bind="props"
-              prepend-icon="mdi-keyboard"
-              title="Typing"
-            ></v-list-item>
-          </template>
-
-          <v-list-item 
-            to="/typing/typing-test" 
-            prepend-icon="mdi-keyboard-outline" 
-            title="Typing Test" 
-            value="typing-test" 
-            color="purple"
-            class="pl-8"
-          ></v-list-item>
-          <v-list-item 
-            to="/typing/leaderboard" 
-            prepend-icon="mdi-trophy-award" 
-            title="Leaderboard (ອັນດັບ)" 
-            value="typing-leaderboard" 
-            color="amber-accent-4" 
-            class="pl-8"
-          ></v-list-item>
-          <v-list-item 
-            to="/typing/manage-lessons" 
-            prepend-icon="mdi-format-list-bulleted" 
-            title="Manage Lessons" 
-            value="manage-lessons" 
-            color="indigo"
-            class="pl-8"
-          ></v-list-item>
-        </v-list-group>
+        <v-list-item to="/typing-test" prepend-icon="mdi-keyboard" title="Lao Typing Test" value="typing" color="purple"></v-list-item>
         <v-list-item to="/editor" prepend-icon="mdi-video-plus-outline" title="Video Editor" value="editor" color="orange"></v-list-item>
-        <v-list-item to="/video-mixer" prepend-icon="mdi-movie-open-plus" title="Video Mixer" value="video-mixer" color="success"></v-list-item>
         <v-list-group value="Chat AI">
           <template v-slot:activator="{ props }">
             <v-list-item
