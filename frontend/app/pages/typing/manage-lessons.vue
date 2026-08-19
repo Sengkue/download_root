@@ -97,6 +97,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  layout: 'typing'
+});
+
 import { ref, onMounted } from 'vue';
 
 const loading = ref(true);

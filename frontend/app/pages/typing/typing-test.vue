@@ -1,22 +1,17 @@
 <template>
-  <v-container fluid class="typing-master-container pa-0 fill-height align-start">
-    <v-row class="ma-0 w-100 justify-center pt-8">
-      <v-col cols="12" md="10" lg="8">
+  <v-container fluid class="typing-master-container pa-2 pa-md-4 fill-height align-start">
+    <v-row class="ma-0 w-100 justify-center pt-1 pt-md-2">
+      <v-col cols="12" md="10" lg="9" xl="8">
         
-        <!-- Header & Lesson Selection -->
-        <div class="d-flex flex-column flex-md-row align-start align-md-center justify-space-between mb-6 gap-4">
-          <div>
-            <h1 class="text-h4 font-weight-bold text-white mb-1">Touch Typing Simulator</h1>
-            <p class="text-subtitle-1 text-grey-lighten-1">Feel the difference and improve your English typing skills.</p>
-          </div>
-          <div class="d-flex flex-wrap align-center gap-3">
+        <!-- Minimalist Top Controls -->
+        <div class="d-flex flex-wrap align-center justify-end mb-3 gap-2">
             <!-- Competitor Name Chip -->
             <v-chip
-              color="amber-accent-3"
-              variant="tonal"
+              color="indigo-darken-3"
+              variant="flat"
               size="large"
               prepend-icon="mdi-account"
-              class="font-weight-bold cursor-pointer"
+              class="font-weight-bold cursor-pointer text-white elevation-2"
               @click="nameDialog = true"
               title="Click to change your competitor name"
             >
@@ -26,13 +21,37 @@
 
             <!-- Leaderboard Button -->
             <v-btn
-              color="amber-accent-4"
-              variant="tonal"
+              color="amber-darken-1"
+              variant="flat"
               prepend-icon="mdi-trophy"
               to="/typing/leaderboard"
               height="44"
-              class="font-weight-bold"
+              class="font-weight-bold text-white elevation-2"
             >Leaderboard</v-btn>
+
+            <!-- Sound Toggle -->
+            <v-btn
+              :icon="soundEnabled ? 'mdi-volume-high' : 'mdi-volume-off'"
+              variant="tonal"
+              :color="soundEnabled ? 'indigo-darken-3' : 'grey'"
+              @click="toggleSound"
+              :title="soundEnabled ? 'Sound ON — Click to mute' : 'Sound OFF — Click to enable'"
+              height="44"
+              width="44"
+              class="bg-white elevation-1"
+            ></v-btn>
+
+            <!-- Fullscreen Toggle -->
+            <v-btn
+              :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
+              variant="tonal"
+              color="indigo-darken-3"
+              @click="toggleFullScreen"
+              title="Toggle Fullscreen"
+              height="44"
+              width="44"
+              class="bg-white elevation-1"
+            ></v-btn>
 
             <v-select
               v-model="selectedLesson"
@@ -41,26 +60,26 @@
               return-object
               label="Select Lesson"
               variant="solo"
-              bg-color="#334155"
-              base-color="#f8fafc"
-              color="blue-lighten-2"
+              bg-color="white"
+              base-color="#475569"
+              color="indigo-darken-3"
               hide-details
               style="min-width: 220px;"
               density="comfortable"
+              class="elevation-1 rounded-lg"
               @update:modelValue="resetTest"
             ></v-select>
-          </div>
         </div>
 
         <!-- Competitor Name Dialog -->
         <v-dialog v-model="nameDialog" max-width="450">
-          <v-card class="bg-blue-grey-darken-4 text-white pa-2 rounded-xl">
-            <v-card-title class="text-h5 font-weight-bold pa-4 border-b border-white-10 d-flex align-center">
-              <v-icon color="amber-accent-3" class="mr-2">mdi-account-edit</v-icon>
+          <v-card class="bg-white text-slate-800 pa-2 rounded-2xl elevation-10">
+            <v-card-title class="text-h5 font-weight-bold pa-4 border-b d-flex align-center text-indigo-darken-3">
+              <v-icon color="indigo-accent-3" class="mr-2">mdi-account-edit</v-icon>
               Competitor Registration
             </v-card-title>
             <v-card-text class="pa-4 pt-6">
-              <p class="text-body-2 text-grey-lighten-1 mb-4">
+              <p class="text-body-2 text-grey-darken-1 mb-4">
                 Enter your name or nickname to register your scores on the public Leaderboard (ແຂງຂັນກັນ).
               </p>
               <v-text-field
@@ -68,20 +87,21 @@
                 label="Your Name / Nickname"
                 placeholder="e.g. JohnSpeed"
                 variant="outlined"
-                color="amber-accent-3"
-                base-color="grey-lighten-1"
+                color="indigo-darken-2"
+                base-color="grey-darken-1"
                 autofocus
                 @keydown.enter="saveCompetitorName"
               ></v-text-field>
             </v-card-text>
             <v-card-actions class="pa-4 pt-0">
               <v-spacer></v-spacer>
-              <v-btn color="grey-lighten-1" variant="text" @click="nameDialog = false">Cancel</v-btn>
+              <v-btn color="grey-darken-1" variant="text" @click="nameDialog = false">Cancel</v-btn>
               <v-btn 
-                color="amber-accent-4" 
+                color="indigo-darken-2" 
                 variant="flat" 
                 @click="saveCompetitorName"
                 :disabled="!tempCompetitorName.trim()"
+                class="text-white font-weight-bold"
               >Save Name</v-btn>
             </v-card-actions>
           </v-card>
@@ -89,32 +109,32 @@
 
         <!-- Completion Modal -->
         <v-dialog v-model="isFinished" max-width="500" persistent>
-          <v-card class="bg-blue-grey-darken-4 text-white pa-4 rounded-xl text-center">
+          <v-card class="bg-white text-slate-800 pa-6 rounded-2xl text-center elevation-12">
             <div class="text-h2 my-2">🎉</div>
-            <v-card-title class="text-h4 font-weight-black text-amber-accent-3 justify-center">
+            <v-card-title class="text-h4 font-weight-black text-indigo-darken-3 justify-center">
               Challenge Completed!
             </v-card-title>
-            <div class="text-subtitle-1 text-grey-lighten-1 mb-6">
-              Great job, <strong class="text-white">{{ competitorName }}</strong>!
+            <div class="text-subtitle-1 text-grey-darken-1 mb-6">
+              Great job, <strong class="text-indigo-darken-4">{{ competitorName }}</strong>!
             </div>
 
             <v-row class="mb-6 justify-center" dense>
               <v-col cols="4">
-                <div class="stat-badge pa-3">
-                  <div class="text-caption text-grey-lighten-1">Speed</div>
-                  <div class="text-h5 font-weight-black text-amber-accent-3">{{ wpm }} <span class="text-caption">WPM</span></div>
+                <div class="stat-badge-modal pa-3 rounded-xl">
+                  <div class="text-caption text-grey-darken-1 font-weight-bold">Speed</div>
+                  <div class="text-h5 font-weight-black text-indigo-darken-3">{{ wpm }} <span class="text-caption">WPM</span></div>
                 </div>
               </v-col>
               <v-col cols="4">
-                <div class="stat-badge pa-3">
-                  <div class="text-caption text-grey-lighten-1">Accuracy</div>
-                  <div class="text-h5 font-weight-black text-green-accent-3">{{ Math.round(accuracy) }}%</div>
+                <div class="stat-badge-modal pa-3 rounded-xl">
+                  <div class="text-caption text-grey-darken-1 font-weight-bold">Accuracy</div>
+                  <div class="text-h5 font-weight-black text-green-darken-2">{{ Math.round(accuracy) }}%</div>
                 </div>
               </v-col>
               <v-col cols="4">
-                <div class="stat-badge pa-3">
-                  <div class="text-caption text-grey-lighten-1">Time</div>
-                  <div class="text-h5 font-weight-black text-orange-lighten-1">{{ formattedTime }}</div>
+                <div class="stat-badge-modal pa-3 rounded-xl">
+                  <div class="text-caption text-grey-darken-1 font-weight-bold">Time</div>
+                  <div class="text-h5 font-weight-black text-amber-darken-3">{{ formattedTime }}</div>
                 </div>
               </v-col>
             </v-row>
@@ -122,21 +142,21 @@
             <v-card-actions class="d-flex flex-column gap-3 pa-0">
               <v-btn
                 v-if="!hasSubmitted"
-                color="amber-accent-4"
+                color="indigo-darken-2"
                 variant="flat"
                 block
                 size="large"
                 prepend-icon="mdi-trophy-award"
                 @click="submitResult"
                 :loading="submitting"
-                class="font-weight-bold"
+                class="font-weight-bold text-white"
               >
                 Submit Score to Leaderboard
               </v-btn>
 
               <v-btn
                 v-else
-                color="green-accent-3"
+                color="green-darken-2"
                 variant="tonal"
                 block
                 size="large"
@@ -148,18 +168,18 @@
 
               <div class="d-flex w-100 gap-2 mt-2">
                 <v-btn
-                  color="blue-lighten-2"
+                  color="indigo-darken-2"
                   variant="outlined"
-                  class="flex-grow-1"
+                  class="flex-grow-1 font-weight-bold"
                   prepend-icon="mdi-trophy"
                   to="/typing/leaderboard"
                 >
                   Leaderboard
                 </v-btn>
                 <v-btn
-                  color="red-lighten-1"
+                  color="red-darken-1"
                   variant="tonal"
-                  class="flex-grow-1"
+                  class="flex-grow-1 font-weight-bold"
                   prepend-icon="mdi-refresh"
                   @click="resetTest"
                 >
@@ -172,96 +192,92 @@
 
         <v-row v-if="loading">
           <v-col class="text-center my-10">
-            <v-progress-circular indeterminate color="blue-lighten-2" size="64"></v-progress-circular>
+            <v-progress-circular indeterminate color="indigo-accent-3" size="64"></v-progress-circular>
           </v-col>
         </v-row>
 
         <div v-else>
-          <!-- Stats Row -->
-          <v-row class="mb-6">
-            <v-col cols="6" sm="3">
-              <div class="stat-badge">
-                <div class="text-caption text-grey-lighten-1 text-uppercase font-weight-bold">Speed (WPM)</div>
-                <div class="text-h4 font-weight-black text-blue-lighten-2">{{ wpm }} <span class="text-body-2">WPM</span></div>
-              </div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="stat-badge">
-                <div class="text-caption text-grey-lighten-1 text-uppercase font-weight-bold">Speed (CPM)</div>
-                <div class="text-h4 font-weight-black text-cyan-accent-2">{{ Math.round(cpm) }} <span class="text-body-2">CPM</span></div>
-              </div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="stat-badge">
-                <div class="text-caption text-grey-lighten-1 text-uppercase font-weight-bold">Accuracy</div>
-                <div class="text-h4 font-weight-black text-green-accent-3">{{ Math.round(accuracy) }}%</div>
-              </div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="stat-badge">
-                <div class="text-caption text-grey-lighten-1 text-uppercase font-weight-bold">Time</div>
-                <div class="text-h4 font-weight-black text-orange-lighten-1">{{ formattedTime }}</div>
-              </div>
-            </v-col>
-          </v-row>
-
-          <!-- Typing Box -->
-          <div class="typing-master-box pa-8 rounded-lg elevation-6 mb-8" 
+          <!-- Typing Box (Light Glassmorphism) -->
+          <div class="typing-master-box pa-5 pa-md-6 rounded-2xl elevation-3 mb-3" 
                :class="{ 'error-flash': showErrorFlash }"
                @click="focusInput">
             
-            <div class="d-flex justify-space-between align-center mb-3">
-              <div class="text-subtitle-1 text-grey-lighten-1">Text Progress:</div>
-              <div class="text-subtitle-1 text-white font-weight-bold">{{ progressPercentage }}%</div>
+            <!-- Live Status Indicator Bar (Time, Speed, Accuracy, Progress) -->
+            <div class="d-flex flex-wrap align-center justify-space-between mb-3 gap-2">
+              <div class="d-flex align-center gap-2">
+                <!-- Live Timer Pill -->
+                <div class="live-pill timer-pill">
+                  <v-icon size="16" color="amber-darken-3" class="mr-1">mdi-timer-outline</v-icon>
+                  <span class="font-weight-bold">{{ formattedTime }}</span>
+                </div>
+
+                <!-- Live Speed Pill -->
+                <div class="live-pill speed-pill">
+                  <v-icon size="16" color="indigo-darken-2" class="mr-1">mdi-lightning-bolt</v-icon>
+                  <span class="font-weight-bold">{{ wpm }} WPM</span>
+                </div>
+
+                <!-- Live Accuracy Pill -->
+                <div class="live-pill accuracy-pill">
+                  <v-icon size="16" color="green-darken-2" class="mr-1">mdi-target</v-icon>
+                  <span class="font-weight-bold">{{ Math.round(accuracy) }}%</span>
+                </div>
+              </div>
+
+              <!-- Progress Percentage -->
+              <div class="text-subtitle-2 text-indigo-darken-3 font-weight-black">
+                {{ progressPercentage }}%
+              </div>
             </div>
+
+            <!-- Progress Bar -->
             <v-progress-linear 
               :model-value="progressPercentage" 
-              color="blue-lighten-2" 
-              height="8" 
-              class="mb-8 rounded-pill"
-              bg-color="#1e293b"
+              color="indigo-accent-3" 
+              height="6" 
+              class="mb-5 rounded-pill"
+              bg-color="#e2e8f0"
             ></v-progress-linear>
 
+            <!-- Text Display (Word-Level Wrapping) -->
             <div class="typing-text-display font-monospace text-h5">
               <span 
-                v-for="(char, index) in targetTextArray" 
-                :key="index" 
-                :class="getCharClass(index)"
-              >{{ char }}</span>
+                v-for="(word, wIdx) in targetWords" 
+                :key="wIdx" 
+                class="word-wrap"
+              >
+                <span 
+                  v-for="item in word" 
+                  :key="item.globalIndex" 
+                  :class="getCharClass(item.globalIndex)"
+                >{{ item.char }}</span>
+              </span>
             </div>
 
-            <div v-if="!isTyping && !isFinished && targetTextArray.length > 0" class="text-center mt-6 text-body-1 text-blue-grey-lighten-1 font-weight-medium">
+            <div v-if="!isTyping && !isFinished && targetTextArray.length > 0" class="text-center mt-4 text-body-2 text-indigo-darken-2 font-weight-medium">
               Click here and start typing to begin...
             </div>
           </div>
 
-          <div class="d-flex justify-center mb-6" v-if="isFinished || isTyping || targetTextArray.length > 0">
+          <div class="d-flex justify-center mb-3" v-if="isFinished || isTyping || targetTextArray.length > 0">
             <v-btn
               color="red-lighten-1"
               variant="tonal"
               prepend-icon="mdi-refresh"
               @click="resetTest"
-              class="mr-4"
+              class="font-weight-bold"
             >Restart Lesson</v-btn>
-
-            <v-btn
-              v-if="isFinished"
-              color="blue-lighten-1"
-              prepend-icon="mdi-cloud-upload"
-              @click="submitResult"
-              :loading="submitting"
-              :disabled="hasSubmitted"
-            >
-              {{ hasSubmitted ? 'Saved to Sheets' : 'Save to Google Sheets' }}
-            </v-btn>
           </div>
 
-          <!-- Graphical Keyboard -->
-          <VirtualKeyboard 
-            :target-char="targetChar" 
-            :error-map="errorMap"
-            :show-heatmap="isFinished"
-          />
+          <!-- Graphical Keyboard (Always 100% Clear & Sharp) -->
+          <div>
+            <VirtualKeyboard 
+              :target-char="targetChar" 
+              :error-map="errorMap"
+              :show-heatmap="isFinished"
+              :show-hands="false"
+            />
+          </div>
 
           <!-- Hidden Input for IME support -->
           <input 
@@ -285,9 +301,15 @@
 </template>
 
 <script setup>
+definePageMeta({
+  layout: 'typing'
+});
+
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 
 const loading = ref(true);
+const isFullscreen = ref(false);
+const isFullscreenMode = useState('isFullscreenMode', () => false);
 const lessons = ref([]);
 const selectedLesson = ref(null);
 
@@ -308,9 +330,161 @@ const showErrorFlash = ref(false);
 const submitting = ref(false);
 const snackbar = ref(false);
 
+// ── Sound Engine (HTML5 Audio with generated WAV) ──
+const soundEnabled = ref(true);
+let clickSoundUrl = null;
+let errorSoundUrl = null;
+let chimeSoundUrl = null;
+const clickPool = [];
+const POOL_SIZE = 8;
+
+// Helper: write string into DataView
+const wavWriteStr = (view, offset, str) => {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
+};
+
+// Generate a WAV blob URL from Int16 sample data
+const createWavUrl = (samples, sampleRate = 44100) => {
+  const numSamples = samples.length;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  wavWriteStr(view, 0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  wavWriteStr(view, 8, 'WAVE');
+  wavWriteStr(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  wavWriteStr(view, 36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+  for (let i = 0; i < numSamples; i++) {
+    view.setInt16(44 + i * 2, samples[i], true);
+  }
+  const blob = new Blob([buffer], { type: 'audio/wav' });
+  return URL.createObjectURL(blob);
+};
+
+const generateClickSound = () => {
+  const rate = 44100;
+  const len = Math.floor(rate * 0.06);
+  const samples = new Int16Array(len);
+  for (let i = 0; i < len; i++) {
+    const t = i / rate;
+    const envelope = Math.exp(-t * 60);
+    const click = Math.sin(2 * Math.PI * 800 * t) * 0.6;
+    const noise = (Math.random() * 2 - 1) * 0.4;
+    samples[i] = Math.floor((click + noise) * envelope * 20000);
+  }
+  return createWavUrl(samples, rate);
+};
+
+const generateErrorSound = () => {
+  const rate = 44100;
+  const len = Math.floor(rate * 0.15);
+  const samples = new Int16Array(len);
+  for (let i = 0; i < len; i++) {
+    const t = i / rate;
+    const envelope = Math.exp(-t * 20);
+    const freq = 200 - t * 400;
+    const wave = Math.sin(2 * Math.PI * freq * t) > 0 ? 1 : -1;
+    samples[i] = Math.floor(wave * envelope * 12000);
+  }
+  return createWavUrl(samples, rate);
+};
+
+const generateChimeSound = () => {
+  const rate = 44100;
+  const len = Math.floor(rate * 0.8);
+  const samples = new Int16Array(len);
+  const freqs = [523.25, 659.25, 783.99];
+  for (let i = 0; i < len; i++) {
+    const t = i / rate;
+    let val = 0;
+    freqs.forEach((f, idx) => {
+      const onset = idx * 0.15;
+      if (t >= onset) {
+        const localT = t - onset;
+        const env = Math.exp(-localT * 4) * Math.min(localT * 40, 1);
+        val += Math.sin(2 * Math.PI * f * localT) * env;
+      }
+    });
+    samples[i] = Math.floor(val * 10000);
+  }
+  return createWavUrl(samples, rate);
+};
+
+const initSounds = () => {
+  if (typeof window === 'undefined') return;
+  clickSoundUrl = generateClickSound();
+  errorSoundUrl = generateErrorSound();
+  chimeSoundUrl = generateChimeSound();
+  // Pre-fill click pool for rapid typing
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const audio = new Audio(clickSoundUrl);
+    audio.volume = 0.5;
+    clickPool.push(audio);
+  }
+};
+
+let clickPoolIndex = 0;
+const playKeyClick = () => {
+  if (!soundEnabled.value || clickPool.length === 0) return;
+  const audio = clickPool[clickPoolIndex % POOL_SIZE];
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+  clickPoolIndex++;
+};
+
+const playErrorSound = () => {
+  if (!soundEnabled.value || !errorSoundUrl) return;
+  const audio = new Audio(errorSoundUrl);
+  audio.volume = 0.5;
+  audio.play().catch(() => {});
+};
+
+const playCompletionChime = () => {
+  if (!soundEnabled.value || !chimeSoundUrl) return;
+  const audio = new Audio(chimeSoundUrl);
+  audio.volume = 0.6;
+  audio.play().catch(() => {});
+};
+
+const toggleSound = () => {
+  soundEnabled.value = !soundEnabled.value;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('typing_sound_enabled', soundEnabled.value ? '1' : '0');
+  }
+  if (soundEnabled.value) playKeyClick();
+};
+
 const targetTextArray = computed(() => {
   if (!selectedLesson.value || !selectedLesson.value.content) return [];
   return selectedLesson.value.content.split('');
+});
+
+const targetWords = computed(() => {
+  if (!selectedLesson.value || !selectedLesson.value.content) return [];
+  const text = selectedLesson.value.content;
+  const words = [];
+  let currentWord = [];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    currentWord.push({ char, globalIndex: i });
+    if (char === ' ' || char === '\n') {
+      words.push(currentWord);
+      currentWord = [];
+    }
+  }
+  if (currentWord.length > 0) {
+    words.push(currentWord);
+  }
+  return words;
 });
 
 const targetChar = computed(() => {
@@ -320,7 +494,6 @@ const targetChar = computed(() => {
   return '';
 });
 
-// International Standard: 1 standard word = 5 keystrokes/characters
 const cpm = computed(() => {
   if (timeElapsedMs.value === 0 || userInput.value.length === 0) return 0;
   const minutes = timeElapsedMs.value / 60000;
@@ -336,7 +509,6 @@ const wpm = computed(() => {
 
 const accuracy = computed(() => {
   if (userInput.value.length === 0) return 100;
-  // Official standard accuracy: (Correct Keystrokes / Total Keystrokes Pressed) * 100
   const totalErrors = Object.values(errorMap.value).reduce((a, b) => a + b, 0);
   const totalKeystrokes = userInput.value.length + totalErrors;
   if (totalKeystrokes === 0) return 100;
@@ -359,13 +531,37 @@ const competitorName = ref('Player 1');
 const nameDialog = ref(false);
 const tempCompetitorName = ref('');
 
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement;
+  isFullscreenMode.value = !!document.fullscreenElement;
+};
+
+const toggleFullScreen = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch((err) => {
+      console.error(`Error attempting to enable fullscreen: ${err.message}`);
+    });
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+};
+
 onMounted(async () => {
   if (typeof window !== 'undefined') {
     const savedName = localStorage.getItem('typing_competitor_name');
     if (savedName) {
       competitorName.value = savedName;
     }
+    const savedSound = localStorage.getItem('typing_sound_enabled');
+    if (savedSound !== null) {
+      soundEnabled.value = savedSound === '1';
+    }
     tempCompetitorName.value = competitorName.value;
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    // Initialize sound WAV files
+    initSounds();
   }
   await fetchLessons();
 });
@@ -401,17 +597,23 @@ const fetchLessons = async () => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  if (typeof window !== 'undefined') {
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }
+  isFullscreenMode.value = false;
 });
 
 const focusInput = () => {
   if (hiddenInput.value && !isFinished.value) {
     hiddenInput.value.focus();
   }
+  // Pre-warm audio context on user click gesture (required by browsers)
+  getAudioCtx();
 };
 
 const getCharClass = (index) => {
   if (index === userInput.value.length && !isFinished.value) {
-    return 'char-active px-1';
+    return 'char-active';
   }
   
   if (index < userInput.value.length) {
@@ -450,14 +652,16 @@ const handleInputNative = (e) => {
   }
 
   if (!correctSoFar) {
-    userInput.value = newValidInput; // Update Vue state
+    userInput.value = newValidInput;
     if (hiddenInput.value) {
-      hiddenInput.value.value = newValidInput; // Force DOM sync
+      hiddenInput.value.value = newValidInput;
     }
     showErrorFlash.value = true;
     setTimeout(() => { showErrorFlash.value = false; }, 150);
+    playErrorSound();
   } else {
     userInput.value = newValidInput;
+    playKeyClick();
   }
 
   if (userInput.value.length >= targetTextArray.value.length) {
@@ -472,6 +676,7 @@ const finishTest = () => {
   }
   isTyping.value = false;
   isFinished.value = true;
+  playCompletionChime();
 };
 
 const resetTest = () => {
@@ -517,60 +722,126 @@ const submitResult = async () => {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 .typing-master-container {
-  background-color: #0f172a; /* Deep slate blue */
-  min-height: 100vh;
+  min-height: 100%;
 }
 
-.stat-badge {
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  padding: 16px;
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.timer-pill {
+  background: rgba(254, 243, 199, 0.8);
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.speed-pill {
+  background: rgba(224, 231, 255, 0.8);
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+.accuracy-pill {
+  background: rgba(209, 250, 229, 0.8);
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.stat-badge-modal {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border: 1px solid #e2e8f0;
   text-align: center;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .typing-master-box {
-  background-color: #1e293b;
-  border: 1px solid #334155;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
   cursor: text;
-  transition: background-color 0.1s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 20px 45px -15px rgba(99, 102, 241, 0.08), 0 0 1px 1px rgba(255, 255, 255, 0.9) inset;
+}
+
+.typing-master-box:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.12);
 }
 
 .error-flash {
-  background-color: rgba(239, 68, 68, 0.2) !important;
+  background-color: rgba(254, 226, 226, 0.7) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
 }
 
 .typing-text-display {
   user-select: none;
-  word-break: break-all;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  line-height: 1.8;
+}
+
+.word-wrap {
+  display: inline-flex;
+  white-space: pre;
 }
 
 .font-monospace {
-  font-family: 'Courier New', Courier, monospace;
-  line-height: 2.2;
-  letter-spacing: 1px;
-}
-
-.char-correct {
-  color: #64748b; /* Dimmed correct text */
-}
-
-.char-incorrect {
-  color: #ef4444; /* Error text */
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-}
-
-.char-active {
-  background-color: #60a5fa; /* TypingMaster blue cursor */
-  color: #0f172a;
-  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+  font-size: clamp(1.2rem, 1.8vw, 1.45rem);
 }
 
 .char-upcoming {
-  color: #f1f5f9; /* Bright grey for text yet to be typed */
+  color: #64748b;
+  font-weight: 400;
+}
+
+.char-correct {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.char-incorrect {
+  color: #dc2626;
+  border-bottom: 2px solid #dc2626;
+  background: rgba(254, 202, 202, 0.85);
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.char-active {
+  color: #64748b;
+  position: relative;
+}
+
+.char-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 2.5px;
+  background-color: #6366f1;
+  animation: blink 1s infinite;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+  border-radius: 2px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .hidden-input {

@@ -12,6 +12,8 @@ export default defineNuxtConfig({
       openRouterApiKey: process.env.NUXT_PUBLIC_OPENROUTER_API_KEY || '',
     }
   },
+
+  devtools: { enabled: false },
   
   build: {
     transpile: ['vuetify'],

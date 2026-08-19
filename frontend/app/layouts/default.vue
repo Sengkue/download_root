@@ -2,9 +2,11 @@
   <v-layout>
     <!-- Sidebar Navigation -->
     <v-navigation-drawer
+      v-if="!isFullscreenMode"
       v-model="drawer"
-      color="grey-darken-4"
+      class="glass-sidebar"
       theme="dark"
+      elevation="0"
     >
       <v-list-item
         prepend-icon="mdi-cloud-download"
@@ -19,40 +21,7 @@
         <v-list-item to="/downloader/media" prepend-icon="mdi-video" title="Media Downloader" value="media" color="red"></v-list-item>
         <v-list-item to="/downloader/stock" prepend-icon="mdi-magnify" title="Stock Search" value="search" color="blue"></v-list-item>
         <v-list-item to="/webview-manager" prepend-icon="mdi-table-large" title="Webview Manager" value="webview" color="teal"></v-list-item>
-        <v-list-group value="Typing">
-          <template v-slot:activator="{ props }">
-            <v-list-item
-              v-bind="props"
-              prepend-icon="mdi-keyboard"
-              title="Typing"
-            ></v-list-item>
-          </template>
-
-          <v-list-item 
-            to="/typing/typing-test" 
-            prepend-icon="mdi-keyboard-outline" 
-            title="Typing Test" 
-            value="typing-test" 
-            color="purple"
-            class="pl-8"
-          ></v-list-item>
-          <v-list-item 
-            to="/typing/leaderboard" 
-            prepend-icon="mdi-trophy-award" 
-            title="Leaderboard (ອັນດັບ)" 
-            value="typing-leaderboard" 
-            color="amber-accent-4" 
-            class="pl-8"
-          ></v-list-item>
-          <v-list-item 
-            to="/typing/manage-lessons" 
-            prepend-icon="mdi-format-list-bulleted" 
-            title="Manage Lessons" 
-            value="manage-lessons" 
-            color="indigo"
-            class="pl-8"
-          ></v-list-item>
-        </v-list-group>
+        <v-list-item to="/typing/typing-test" prepend-icon="mdi-keyboard" title="Typing Test" value="typing" color="purple"></v-list-item>
         <v-list-item to="/editor" prepend-icon="mdi-video-plus-outline" title="Video Editor" value="editor" color="orange"></v-list-item>
         <v-list-item to="/video-mixer" prepend-icon="mdi-movie-open-plus" title="Video Mixer" value="video-mixer" color="success"></v-list-item>
         <v-list-group value="Chat AI">
@@ -77,7 +46,7 @@
     </v-navigation-drawer>
 
     <!-- Top Navigation Bar -->
-    <v-app-bar color="primary" elevation="4">
+    <v-app-bar v-if="!isFullscreenMode" class="glass-app-bar" theme="dark" elevation="0" fixed>
       <!-- Hamburger menu to toggle sidebar -->
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
 
@@ -95,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useDisplay } from 'vuetify';
 
 // Vuetify useDisplay helps us know if it's a mobile screen
@@ -104,7 +73,7 @@ const { mobile } = useDisplay();
 // Initialize to true for server rendering to match the desktop default
 const drawer = ref(true);
 
-import { onMounted } from 'vue';
+const isFullscreenMode = useState('isFullscreenMode', () => false);
 
 // Only after the browser has hydrated the page, we calculate the real screen size
 onMounted(() => {
@@ -118,6 +87,37 @@ onMounted(() => {
 /* Global background applied to the main wrapper */
 .page-background {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  /* A modern premium radial gradient (Silver/Slate) */
+  background: radial-gradient(circle at top left, #ffffff 0%, #cfd8dc 100%);
+}
+
+/* Glassmorphism for App Bar */
+.glass-app-bar {
+  background: rgba(38, 50, 56, 0.75) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Glassmorphism for Sidebar */
+.glass-sidebar {
+  background: rgba(38, 50, 56, 0.85) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Modernize List Items */
+.glass-sidebar .v-list-item {
+  border-radius: 10px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.glass-sidebar .v-list-item:hover {
+  transform: translateX(4px);
+}
+
+.glass-sidebar .v-list-item--active {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
 }
 </style>

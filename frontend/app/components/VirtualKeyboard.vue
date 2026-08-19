@@ -2,7 +2,7 @@
   <div class="virtual-keyboard-container my-4 d-flex flex-column align-center" translate="no">
     
     <!-- Hands Graphic Guide -->
-    <svg viewBox="0 0 500 260" class="hands-svg mb-4" width="100%" max-width="400">
+    <svg v-if="showHands" viewBox="0 0 500 260" class="hands-svg mb-4" width="100%" max-width="400">
       <!-- Left Hand -->
       <!-- Palm -->
       <rect x="50" y="150" width="130" height="90" rx="30" fill="rgba(255,255,255,0.05)" stroke="#475569" stroke-width="2"/>
@@ -93,6 +93,10 @@ const props = defineProps({
   showHeatmap: {
     type: Boolean,
     default: false
+  },
+  showHands: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -205,75 +209,90 @@ const getKeyClass = (key) => {
 }
 
 .keyboard-base {
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 1px solid #334155;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.06), 0 0 1px 1px rgba(255, 255, 255, 0.9) inset;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
+  padding: 12px !important;
+  border-radius: 20px;
 }
 
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 5px;
+  margin-bottom: 5px;
 }
 
 .key-cap {
-  background: linear-gradient(to bottom, #334155, #1e293b);
-  border: 1px solid #000;
-  color: #cbd5e1;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  color: #334155;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
-  height: 54px;
+  height: 44px;
   font-family: sans-serif;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 3px 0 #000, 0 4px 6px rgba(0,0,0,0.5);
+  box-shadow: 0 3px 0 #cbd5e1, 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .key-cap:active {
-  transform: translateY(3px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 #000, 0 1px 2px rgba(0,0,0,0.5);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #cbd5e1, 0 2px 3px -1px rgba(0, 0, 0, 0.05);
 }
 
 .key-shift {
   font-size: 0.8em;
-  color: #64748b;
+  color: #94a3b8;
   position: absolute;
-  top: 6px;
-  left: 8px;
+  top: 4px;
+  left: 6px;
 }
 
 .key-base {
   font-size: 1.05em;
-  font-weight: bold;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .key-special {
-  background: linear-gradient(to bottom, #1e293b, #0f172a);
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
   color: #64748b;
+  border-color: #cbd5e1;
 }
 
 .key-highlight-target {
-  background: linear-gradient(to bottom, #3b82f6, #1d4ed8) !important;
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
   color: #ffffff !important;
-  border-color: #1e3a8a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 0 #000, 0 0 15px rgba(59, 130, 246, 0.6) !important;
+  border-color: #4338ca !important;
+  box-shadow: 0 2px 0 #312e81, 0 0 16px rgba(99, 102, 241, 0.6) !important;
   transform: translateY(2px);
 }
 
-.key-highlight-shift {
-  background: linear-gradient(to bottom, #f59e0b, #b45309) !important;
-  border-color: #78350f !important;
+.key-highlight-target .key-base,
+.key-highlight-target .key-shift {
   color: #ffffff !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 0 #000, 0 0 15px rgba(245, 158, 11, 0.6) !important;
+}
+
+.key-highlight-shift {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-color: #b45309 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 0 #78350f, 0 0 16px rgba(245, 158, 11, 0.6) !important;
   transform: translateY(2px);
+}
+
+.key-highlight-shift .key-base,
+.key-highlight-shift .key-shift {
+  color: #ffffff !important;
 }
 
 .width-regular { width: 40px; }
