@@ -1,23 +1,13 @@
 <template>
-  <v-container fluid class="typing-master-container pa-2 pa-md-4 fill-height align-start">
+  <div v-if="!isAuthChecked" class="d-flex justify-center align-center" style="min-height: 80vh;">
+    <v-progress-circular indeterminate color="indigo-accent-3" size="64"></v-progress-circular>
+  </div>
+  <v-container v-else fluid class="typing-master-container pa-2 pa-md-4 fill-height align-start">
     <v-row class="ma-0 w-100 justify-center pt-1 pt-md-2">
       <v-col cols="12" md="10" lg="9" xl="8">
         
         <!-- Minimalist Top Controls -->
         <div class="d-flex flex-wrap align-center justify-end mb-3 gap-2">
-            <!-- Competitor Name Chip -->
-            <v-chip
-              color="indigo-darken-3"
-              variant="flat"
-              size="large"
-              prepend-icon="mdi-account"
-              class="font-weight-bold cursor-pointer text-white elevation-2"
-              @click="nameDialog = true"
-              title="Click to change your competitor name"
-            >
-              {{ competitorName || 'Set Competitor Name' }}
-              <v-icon end size="16" class="ml-1">mdi-pencil</v-icon>
-            </v-chip>
 
             <!-- Leaderboard Button -->
             <v-btn
@@ -40,6 +30,7 @@
               width="44"
               class="bg-white elevation-1"
             ></v-btn>
+
 
             <!-- Fullscreen Toggle -->
             <v-btn
@@ -71,42 +62,6 @@
             ></v-select>
         </div>
 
-        <!-- Competitor Name Dialog -->
-        <v-dialog v-model="nameDialog" max-width="450">
-          <v-card class="bg-white text-slate-800 pa-2 rounded-2xl elevation-10">
-            <v-card-title class="text-h5 font-weight-bold pa-4 border-b d-flex align-center text-indigo-darken-3">
-              <v-icon color="indigo-accent-3" class="mr-2">mdi-account-edit</v-icon>
-              Competitor Registration
-            </v-card-title>
-            <v-card-text class="pa-4 pt-6">
-              <p class="text-body-2 text-grey-darken-1 mb-4">
-                Enter your name or nickname to register your scores on the public Leaderboard (ແຂງຂັນກັນ).
-              </p>
-              <v-text-field
-                v-model="tempCompetitorName"
-                label="Your Name / Nickname"
-                placeholder="e.g. JohnSpeed"
-                variant="outlined"
-                color="indigo-darken-2"
-                base-color="grey-darken-1"
-                autofocus
-                @keydown.enter="saveCompetitorName"
-              ></v-text-field>
-            </v-card-text>
-            <v-card-actions class="pa-4 pt-0">
-              <v-spacer></v-spacer>
-              <v-btn color="grey-darken-1" variant="text" @click="nameDialog = false">Cancel</v-btn>
-              <v-btn 
-                color="indigo-darken-2" 
-                variant="flat" 
-                @click="saveCompetitorName"
-                :disabled="!tempCompetitorName.trim()"
-                class="text-white font-weight-bold"
-              >Save Name</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
-
         <!-- Completion Modal -->
         <v-dialog v-model="isFinished" max-width="500" persistent>
           <v-card class="bg-white text-slate-800 pa-6 rounded-2xl text-center elevation-12">
@@ -115,7 +70,7 @@
               Challenge Completed!
             </v-card-title>
             <div class="text-subtitle-1 text-grey-darken-1 mb-6">
-              Great job, <strong class="text-indigo-darken-4">{{ competitorName }}</strong>!
+              Great job, <strong class="text-indigo-darken-4">{{ user?.username }}</strong>!
             </div>
 
             <v-row class="mb-6 justify-center" dense>
@@ -151,7 +106,7 @@
                 :loading="submitting"
                 class="font-weight-bold text-white"
               >
-                Submit Score to Leaderboard
+                Submit Score
               </v-btn>
 
               <v-btn
@@ -163,7 +118,7 @@
                 prepend-icon="mdi-check-circle"
                 disabled
               >
-                Score Saved to Leaderboard!
+                Score Saved!
               </v-btn>
 
               <div class="d-flex w-100 gap-2 mt-2">
@@ -295,7 +250,7 @@
 
     <!-- Success Snackbar -->
     <v-snackbar v-model="snackbar" color="success" timeout="3000">
-      Result saved successfully to your Google Sheet!
+      Result saved successfully!
     </v-snackbar>
   </v-container>
 </template>
@@ -306,10 +261,14 @@ definePageMeta({
 });
 
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
+import keyboardClickMp3 from './assets/keyboard.mp3';
 
+const router = useRouter();
 const loading = ref(true);
 const isFullscreen = ref(false);
 const isFullscreenMode = useState('isFullscreenMode', () => false);
+const isAuthChecked = ref(false);
 const lessons = ref([]);
 const selectedLesson = ref(null);
 
@@ -325,18 +284,19 @@ const timeElapsed = computed(() => Math.floor(timeElapsedMs.value / 1000));
 let timerInterval = null;
 
 const errorMap = ref({});
+const errorPositions = ref(new Set());
 const showErrorFlash = ref(false);
 
 const submitting = ref(false);
 const snackbar = ref(false);
+const user = ref(null);
 
-// ── Sound Engine (HTML5 Audio with generated WAV) ──
+// ── Sound Engine (Web AudioContext for clicks, HTML5 Audio for others) ──
 const soundEnabled = ref(true);
-let clickSoundUrl = null;
+let audioCtx = null;
+let clickBuffer = null;
 let errorSoundUrl = null;
 let chimeSoundUrl = null;
-const clickPool = [];
-const POOL_SIZE = 8;
 
 // Helper: write string into DataView
 const wavWriteStr = (view, offset, str) => {
@@ -370,18 +330,16 @@ const createWavUrl = (samples, sampleRate = 44100) => {
   return URL.createObjectURL(blob);
 };
 
-const generateClickSound = () => {
-  const rate = 44100;
-  const len = Math.floor(rate * 0.06);
-  const samples = new Int16Array(len);
-  for (let i = 0; i < len; i++) {
-    const t = i / rate;
-    const envelope = Math.exp(-t * 60);
-    const click = Math.sin(2 * Math.PI * 800 * t) * 0.6;
-    const noise = (Math.random() * 2 - 1) * 0.4;
-    samples[i] = Math.floor((click + noise) * envelope * 20000);
+// Load the keyboard.mp3 into an AudioBuffer for Web AudioContext playback
+const loadClickBuffer = async () => {
+  try {
+    ensureAudioCtx();
+    const response = await fetch(keyboardClickMp3);
+    const arrayBuffer = await response.arrayBuffer();
+    clickBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  } catch (e) {
+    console.error('Failed to load keyboard click sound:', e);
   }
-  return createWavUrl(samples, rate);
 };
 
 const generateErrorSound = () => {
@@ -419,26 +377,36 @@ const generateChimeSound = () => {
   return createWavUrl(samples, rate);
 };
 
-const initSounds = () => {
-  if (typeof window === 'undefined') return;
-  clickSoundUrl = generateClickSound();
-  errorSoundUrl = generateErrorSound();
-  chimeSoundUrl = generateChimeSound();
-  // Pre-fill click pool for rapid typing
-  for (let i = 0; i < POOL_SIZE; i++) {
-    const audio = new Audio(clickSoundUrl);
-    audio.volume = 0.5;
-    clickPool.push(audio);
+const ensureAudioCtx = () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
   }
 };
 
-let clickPoolIndex = 0;
+const initSounds = async () => {
+  if (typeof window === 'undefined') return;
+  errorSoundUrl = generateErrorSound();
+  chimeSoundUrl = generateChimeSound();
+  await loadClickBuffer();
+};
+
 const playKeyClick = () => {
-  if (!soundEnabled.value || clickPool.length === 0) return;
-  const audio = clickPool[clickPoolIndex % POOL_SIZE];
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
-  clickPoolIndex++;
+  if (!soundEnabled.value) return;
+  try {
+    ensureAudioCtx();
+    const source = audioCtx.createBufferSource();
+    source.buffer = clickBuffer;
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0.6;
+    source.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    source.start(0);
+  } catch (e) {
+    // Silently ignore audio errors
+  }
 };
 
 const playErrorSound = () => {
@@ -527,10 +495,6 @@ const progressPercentage = computed(() => {
   return Math.min(100, Math.round((userInput.value.length / targetTextArray.value.length) * 100));
 });
 
-const competitorName = ref('Player 1');
-const nameDialog = ref(false);
-const tempCompetitorName = ref('');
-
 const handleFullscreenChange = () => {
   isFullscreen.value = !!document.fullscreenElement;
   isFullscreenMode.value = !!document.fullscreenElement;
@@ -549,32 +513,30 @@ const toggleFullScreen = () => {
 };
 
 onMounted(async () => {
-  if (typeof window !== 'undefined') {
-    const savedName = localStorage.getItem('typing_competitor_name');
-    if (savedName) {
-      competitorName.value = savedName;
-    }
-    const savedSound = localStorage.getItem('typing_sound_enabled');
-    if (savedSound !== null) {
-      soundEnabled.value = savedSound === '1';
-    }
-    tempCompetitorName.value = competitorName.value;
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    // Initialize sound WAV files
-    initSounds();
+  const token = localStorage.getItem('typing_token');
+  const userData = localStorage.getItem('typing_user');
+  
+  if (!token || !userData) {
+    router.push('/typing/login');
+    return;
   }
+  
+  user.value = JSON.parse(userData);
+  
+  initSounds();
+  if (!document.getElementById('jetbrains-mono-font')) {
+    const link = document.createElement('link');
+    link.id = 'jetbrains-mono-font';
+    link.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }
+  
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
   await fetchLessons();
+  nextTick(() => { focusInput(); });
+  isAuthChecked.value = true;
 });
-
-const saveCompetitorName = () => {
-  if (tempCompetitorName.value.trim()) {
-    competitorName.value = tempCompetitorName.value.trim();
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('typing_competitor_name', competitorName.value);
-    }
-    nameDialog.value = false;
-  }
-};
 
 const fetchLessons = async () => {
   loading.value = true;
@@ -584,9 +546,6 @@ const fetchLessons = async () => {
     lessons.value = data;
     if (data.length > 0 && !selectedLesson.value) {
       selectedLesson.value = data[0];
-      nextTick(() => {
-        focusInput();
-      });
     }
   } catch (err) {
     console.error('Error fetching lessons', err);
@@ -607,8 +566,6 @@ const focusInput = () => {
   if (hiddenInput.value && !isFinished.value) {
     hiddenInput.value.focus();
   }
-  // Pre-warm audio context on user click gesture (required by browsers)
-  getAudioCtx();
 };
 
 const getCharClass = (index) => {
@@ -617,15 +574,20 @@ const getCharClass = (index) => {
   }
   
   if (index < userInput.value.length) {
-    return userInput.value[index] === targetTextArray.value[index] ? 'char-correct' : 'char-incorrect';
+    if (userInput.value[index] === targetTextArray.value[index]) {
+      return errorPositions.value.has(index) ? 'char-had-error' : 'char-correct';
+    }
+    return 'char-incorrect';
   }
 
   return 'char-upcoming';
 };
 
 const handleInputNative = (e) => {
-  const newValue = e.target.value;
-  
+  processNewValue(e.target.value);
+};
+
+const processNewValue = (newValue) => {
   if (!isTyping.value && newValue.length > 0) {
     isTyping.value = true;
     startTime.value = Date.now();
@@ -643,6 +605,8 @@ const handleInputNative = (e) => {
       newValidInput += newValue[i];
     } else {
       correctSoFar = false;
+      const charIndex = i;
+      errorPositions.value.add(charIndex);
       const targetChar = targetTextArray.value[i];
       if (targetChar) {
         errorMap.value[targetChar] = (errorMap.value[targetChar] || 0) + 1;
@@ -688,6 +652,7 @@ const resetTest = () => {
   timeElapsedMs.value = 0;
   startTime.value = null;
   errorMap.value = {};
+  errorPositions.value = new Set();
   showErrorFlash.value = false;
   nextTick(() => {
     focusInput();
@@ -697,18 +662,25 @@ const resetTest = () => {
 const submitResult = async () => {
   submitting.value = true;
   try {
-    const res = await fetch('http://localhost:3001/api/typing-results', {
+    const payload = {
+      username: user.value.username,
+      userId: user.value.id,
+      lessonTitle: selectedLesson.value ? selectedLesson.value.title : 'Custom Practice',
+      cpm: cpm.value,
+      wpm: wpm.value,
+      accuracy: accuracy.value,
+      timeSeconds: formattedTime.value
+    };
+
+    const res = await fetch('http://localhost:3001/api/typing-history', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: competitorName.value || 'Anonymous',
-        lessonTitle: selectedLesson.value ? selectedLesson.value.title : 'Custom Practice',
-        cpm: cpm.value,
-        wpm: wpm.value,
-        accuracy: accuracy.value,
-        timeSeconds: formattedTime.value
-      })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('typing_token')}`
+      },
+      body: JSON.stringify(payload)
     });
+    
     if (res.ok) {
       snackbar.value = true;
       hasSubmitted.value = true;
@@ -811,6 +783,13 @@ const submitResult = async () => {
 .char-correct {
   color: #0f172a;
   font-weight: 700;
+}
+
+.char-had-error {
+  color: #dc2626;
+  font-weight: 700;
+  border-bottom: 2px solid #dc2626;
+  border-radius: 2px;
 }
 
 .char-incorrect {

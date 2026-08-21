@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 
+definePageMeta({
+  layout: 'downloader'
+});
+
 const apiKey = ref('32033819-d1c055cd90058f2879aa55993'); // User's requested key
 const searchQuery = ref('nature landscape');
 const mediaType = ref('image');

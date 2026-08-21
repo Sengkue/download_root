@@ -20,6 +20,7 @@ export const connectDB = async () => {
     await import('../models/User.js');
     await import('../models/Post.js');
     await import('../models/WebviewLink.js');
+    await import('../models/TypingHistory.js');
     // Synchronize models
     await sequelize.sync();
   } catch (error) {

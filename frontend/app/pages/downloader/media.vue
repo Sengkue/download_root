@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+definePageMeta({
+  layout: 'downloader'
+});
+
 const urlInput = ref('');
 const isChecking = ref(false);
 const isDownloading = ref(false);
