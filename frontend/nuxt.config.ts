@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,
   },
-  
+
   runtimeConfig: {
     public: {
       openRouterApiKey: process.env.NUXT_PUBLIC_OPENROUTER_API_KEY || '',
@@ -14,11 +14,11 @@ export default defineNuxtConfig({
   },
 
   devtools: { enabled: false },
-  
+
   build: {
     transpile: ['vuetify'],
   },
-  
+
   modules: [
     (_options, nuxt) => {
       nuxt.hooks.hook('vite:extendConfig', (config) => {
@@ -28,7 +28,7 @@ export default defineNuxtConfig({
     },
     //...
   ],
-  
+
   vite: {
     vue: {
       template: {

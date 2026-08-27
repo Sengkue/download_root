@@ -99,14 +99,14 @@ const modules = ref([
     description: 'Interact with the advanced Chat AI system.',
     icon: 'mdi-robot',
     color: 'deep-orange-darken-3',
-    route: '/chatai'
+    route: '/chatai/qwenai'
   },
   {
     title: 'Typing',
     description: 'Practice and improve your typing skills.',
     icon: 'mdi-keyboard',
     color: 'red-darken-3',
-    route: '/typing'
+    route: '/typing/typing-test'
   },
   {
     title: 'Editor',
@@ -114,6 +114,13 @@ const modules = ref([
     icon: 'mdi-code-braces',
     color: 'brown-darken-2',
     route: '/editor'
+  },
+  {
+    title: 'Learning',
+    description: 'Master new languages including Hmong, Lao, and English.',
+    icon: 'mdi-school',
+    color: 'teal-darken-2',
+    route: '/learning'
   },
   {
     title: 'Webview Manager',
