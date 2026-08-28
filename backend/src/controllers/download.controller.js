@@ -6,6 +6,7 @@ import os from 'os';
 import crypto from 'crypto';
 
 export const progressMap = new Map();
+export const activeJobsMap = new Map();
 
 export const getProgress = (req, res) => {
   const { jobId } = req.query;

@@ -18,12 +18,13 @@
           <input type="file" ref="imageInput" accept="image/*" multiple class="d-none" @change="onSelectImage" @click.stop />
           
           <div v-if="imageFiles.length === 0" class="zone-placeholder">
-            <v-icon icon="mdi-image-multiple-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
-            <h3>Image Track</h3>
-            <p>Drag & Drop multiple images or Click to browse</p>
+            <v-icon icon="mdi-image-multiple-outline" size="40" class="mb-2 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
+            <h3 class="text-subtitle-1 font-weight-bold">Image Sequence</h3>
+            <p class="text-caption">Drag & Drop or Click (Multiple allowed)</p>
           </div>
           
           <div v-else class="zone-preview multi-preview">
+            <v-btn icon="mdi-close" size="x-small" color="error" variant="flat" class="clear-box-btn" @click.stop="clearImages" title="Clear Images"></v-btn>
             <div class="gallery-grid">
               <div v-for="(url, index) in imagePreviewUrls.slice(0, 4)" :key="index" class="gallery-item">
                 <img :src="url" alt="Preview" class="preview-img-small" />
@@ -33,7 +34,7 @@
               </div>
             </div>
             <div class="file-overlay">
-              <v-icon icon="mdi-check-circle" color="success" size="32"></v-icon>
+              <v-icon icon="mdi-check-circle" color="success" size="24"></v-icon>
               <span>{{ imageFiles.length }} Image(s) selected</span>
               <small>(Click to replace)</small>
             </div>
@@ -49,20 +50,21 @@
           @drop.prevent="onDropAudio"
           @click="$refs.audioInput.click()"
         >
-          <input type="file" ref="audioInput" accept="audio/*" class="d-none" @change="onSelectAudio" @click.stop />
+          <input type="file" ref="audioInput" accept="audio/*" multiple class="d-none" @change="onSelectAudio" @click.stop />
           
-          <div v-if="!audioFile" class="zone-placeholder">
-            <v-icon icon="mdi-music-note-outline" size="56" class="mb-4 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
-            <h3>Audio Track</h3>
-            <p>Drag & Drop or Click to browse</p>
+          <div v-if="audioFiles.length === 0" class="zone-placeholder">
+            <v-icon icon="mdi-music-note-outline" size="40" class="mb-2 floating-icon" color="rgba(255,255,255,0.8)"></v-icon>
+            <h3 class="text-subtitle-1 font-weight-bold">Audio Track</h3>
+            <p class="text-caption">Drag & Drop or Click (Multiple allowed)</p>
           </div>
           
           <div v-else class="zone-preview audio-preview">
-            <v-icon icon="mdi-waveform" size="64" color="white" class="wave-icon"></v-icon>
+            <v-btn icon="mdi-close" size="x-small" color="error" variant="flat" class="clear-box-btn" @click.stop="clearAudio" title="Clear Audio"></v-btn>
+            <v-icon icon="mdi-waveform" size="40" color="white" class="wave-icon"></v-icon>
             <div class="file-overlay">
-              <v-icon icon="mdi-check-circle" color="success" size="32"></v-icon>
-              <span>{{ audioFile.name }}</span>
-              <small>(Click to replace)</small>
+              <v-icon icon="mdi-check-circle" color="success" size="24"></v-icon>
+              <span>{{ audioFiles.length === 1 ? audioFiles[0].name : audioFiles.length + ' tracks selected' }}</span>
+              <small>(Click to add more/replace)</small>
             </div>
           </div>
         </div>
@@ -87,19 +89,20 @@
               v-model="zoomDir"
               color="primary"
               mandatory
+              density="compact"
               class="w-100 btn-group-custom"
             >
-              <v-btn value="in" class="flex-grow-1">
-                <v-icon start>mdi-magnify-plus</v-icon> In
+              <v-btn value="in" class="flex-grow-1" size="small">
+                <v-icon start size="small">mdi-magnify-plus</v-icon> In
               </v-btn>
-              <v-btn value="out" class="flex-grow-1">
-                <v-icon start>mdi-magnify-minus</v-icon> Out
+              <v-btn value="out" class="flex-grow-1" size="small">
+                <v-icon start size="small">mdi-magnify-minus</v-icon> Out
               </v-btn>
-              <v-btn value="alternate" class="flex-grow-1">
-                <v-icon start>mdi-swap-horizontal</v-icon> Switch
+              <v-btn value="alternate" class="flex-grow-1" size="small">
+                <v-icon start size="small">mdi-swap-horizontal</v-icon> Switch
               </v-btn>
-              <v-btn value="none" class="flex-grow-1">
-                <v-icon start>mdi-cancel</v-icon> None
+              <v-btn value="none" class="flex-grow-1" size="small">
+                <v-icon start size="small">mdi-cancel</v-icon> None
               </v-btn>
             </v-btn-toggle>
           </v-col>
@@ -179,6 +182,29 @@
               theme="dark"
               :menu-props="{ contentClass: 'bg-grey-darken-4' }"
             >
+              <template v-slot:prepend-item>
+                <v-list-item
+                  ripple
+                  @click="toggleAllTransitions"
+                  class="transition-list-item"
+                >
+                  <template v-slot:prepend>
+                    <v-list-item-action start>
+                      <v-checkbox-btn
+                        :model-value="likesAllTransitions"
+                        :indeterminate="likesSomeTransitions"
+                        color="primary"
+                        density="compact"
+                      ></v-checkbox-btn>
+                    </v-list-item-action>
+                    <v-icon icon="mdi-check-all" :color="likesAllTransitions ? 'primary' : 'grey-lighten-1'" class="mr-3"></v-icon>
+                  </template>
+                  <v-list-item-title :class="likesAllTransitions ? 'text-primary font-weight-bold' : 'text-white'">
+                    Select All / Clear All
+                  </v-list-item-title>
+                </v-list-item>
+                <v-divider class="my-1"></v-divider>
+              </template>
               <template v-slot:selection="{ item, index }">
                 <v-chip v-if="index < 2" color="primary" size="small" variant="flat" class="font-weight-bold mr-1">
                   {{ item.raw.title }}
@@ -197,13 +223,92 @@
                 >
                   <template v-slot:prepend="{ isActive }">
                     <v-list-item-action start>
-                      <v-checkbox-btn :model-value="isActive" color="primary"></v-checkbox-btn>
+                      <v-checkbox-btn :model-value="isActive" color="primary" density="compact"></v-checkbox-btn>
                     </v-list-item-action>
                     <v-icon :icon="item.raw.icon" :color="isActive ? 'primary' : 'grey-lighten-1'" class="mr-3"></v-icon>
                   </template>
                   <v-list-item-title :class="isActive ? 'text-primary font-weight-bold' : 'text-white'">
                     {{ item.raw.title }}
                   </v-list-item-title>
+                  <template v-slot:append>
+                    <div class="transition-preview-box" :class="'preview-' + item.raw.value">
+                      <div class="preview-layer-1"></div>
+                      <div class="preview-layer-2"></div>
+                    </div>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-select>
+          </v-col>
+        </v-row>
+        <v-row class="mt-2">
+          <v-col cols="12" md="6">
+            <div class="d-flex justify-space-between align-center mb-2">
+              <p class="font-weight-bold mb-0 text-white">Target Video Length</p>
+              <span class="text-caption text-primary font-weight-bold">
+                {{ targetDurationValue > 0 ? targetDurationValue + ' ' + targetDurationUnit : 'Auto (Shortest)' }}
+              </span>
+            </div>
+            <div class="d-flex align-center mt-2" style="gap: 12px;">
+              <v-text-field
+                v-model.number="targetDurationValue"
+                type="number"
+                min="0"
+                density="compact"
+                hide-details
+                variant="outlined"
+                bg-color="rgba(255,255,255,0.05)"
+                color="primary"
+                class="rounded-lg"
+                placeholder="0 = Auto"
+              ></v-text-field>
+              <v-select
+                v-model="targetDurationUnit"
+                :items="['Seconds', 'Minutes', 'Hours']"
+                density="compact"
+                hide-details
+                variant="outlined"
+                bg-color="rgba(255,255,255,0.05)"
+                color="primary"
+                class="rounded-lg"
+                style="max-width: 140px;"
+                theme="dark"
+                :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+              ></v-select>
+            </div>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <div class="d-flex justify-space-between align-center mb-2">
+              <p class="font-weight-bold mb-0 text-white">Output Resolution</p>
+              <span class="text-caption text-primary font-weight-bold">Select aspect ratio</span>
+            </div>
+            <v-select
+              v-model="outputResolution"
+              :items="resolutionOptions"
+              item-title="title"
+              item-value="value"
+              density="compact"
+              hide-details
+              variant="outlined"
+              bg-color="rgba(255,255,255,0.05)"
+              color="primary"
+              class="rounded-lg"
+              theme="dark"
+              :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+            >
+              <template v-slot:selection="{ item }">
+                <v-icon :icon="item.raw.icon" size="small" class="mr-2"></v-icon>
+                {{ item.raw.title }}
+              </template>
+              <template v-slot:item="{ props, item }">
+                <v-list-item v-bind="props" :title="item.raw.title">
+                  <template v-slot:prepend>
+                    <v-icon :icon="item.raw.icon" color="grey-lighten-1" class="mr-3"></v-icon>
+                  </template>
+                  <template v-slot:subtitle>
+                    <span class="text-grey-lighten-1">{{ item.raw.value }}</span>
+                  </template>
                 </v-list-item>
               </template>
             </v-select>
@@ -276,21 +381,27 @@
 
       <!-- Generate Action with Progress Bar -->
       <div v-if="!videoUrl" class="generate-section mt-8">
-        <v-btn
-          v-if="!isGenerating"
-          size="x-large"
-          class="generate-btn"
-          :disabled="!canGenerate"
-          @click="generateVideo"
-        >
-          <v-icon icon="mdi-magic-staff" class="mr-2" />
-          Generate Video
-        </v-btn>
+        <div v-if="!isGenerating" class="d-flex justify-center" style="gap: 16px;">
+          <v-btn
+            size="x-large"
+            class="generate-btn"
+            :disabled="!canGenerate"
+            @click="generateVideo"
+          >
+            <v-icon icon="mdi-magic-staff" class="mr-2" />
+            Generate Video
+          </v-btn>
+        </div>
         
         <div v-else class="progress-section glass-card pa-6">
           <div class="d-flex justify-space-between align-center mb-3">
             <span class="font-weight-bold text-white text-body-1">{{ currentStatus }}</span>
-            <span class="progress-percent">{{ Math.round(currentProgress) }}%</span>
+            <div class="d-flex align-center" style="gap: 12px;">
+              <span class="progress-percent">{{ Math.round(currentProgress) }}%</span>
+              <v-btn size="small" color="error" variant="flat" @click="cancelGeneration">
+                <v-icon icon="mdi-close" class="mr-1"></v-icon> Cancel
+              </v-btn>
+            </div>
           </div>
           <v-progress-linear
             :model-value="currentProgress"
@@ -327,7 +438,7 @@ const isDraggingAudio = ref(false);
 
 const imageFiles = ref([]);
 const imagePreviewUrls = ref([]);
-const audioFile = ref(null);
+const audioFiles = ref([]);
 
 // Settings State (Cinematic Best Practices)
 const zoomDir = ref('alternate');
@@ -353,15 +464,38 @@ const transitionOptions = [
 // Default to all selected so it behaves like a massive random mix
 const selectedTransitions = ref(transitionOptions.map(t => t.value));
 
+const likesAllTransitions = computed(() => selectedTransitions.value.length === transitionOptions.length);
+const likesSomeTransitions = computed(() => selectedTransitions.value.length > 0 && !likesAllTransitions.value);
+
+const toggleAllTransitions = () => {
+  if (likesAllTransitions.value) {
+    selectedTransitions.value = [];
+  } else {
+    selectedTransitions.value = transitionOptions.map(t => t.value);
+  }
+};
+
+const targetDurationValue = ref(0);
+const targetDurationUnit = ref('Hours');
+const outputResolution = ref('1280:720');
+const resolutionOptions = [
+  { title: 'YouTube / TV (16:9 HD)', value: '1280:720', icon: 'mdi-monitor' },
+  { title: 'YouTube / TV (16:9 FHD)', value: '1920:1080', icon: 'mdi-monitor-screenshot' },
+  { title: 'TikTok / Reels (9:16 HD)', value: '720:1280', icon: 'mdi-cellphone' },
+  { title: 'TikTok / Reels (9:16 FHD)', value: '1080:1920', icon: 'mdi-cellphone-screenshot' },
+  { title: 'Instagram Square (1:1)', value: '1080:1080', icon: 'mdi-crop-square' }
+];
+
 const isGenerating = ref(false);
 const videoUrl = ref(null);
 
 // Progress State
 const currentProgress = ref(0);
-const currentStatus = ref('');
+const currentStatus = ref('Preparing media...');
+const currentJobId = ref(null);
 let eventSource = null;
 
-const canGenerate = computed(() => imageFiles.value.length > 0 && audioFile.value);
+const canGenerate = computed(() => imageFiles.value.length > 0 && audioFiles.value.length > 0);
 
 // Image Handlers
 const onDropImage = (e) => {
@@ -388,20 +522,21 @@ const setImages = (files) => {
 // Audio Handlers
 const onDropAudio = (e) => {
   isDraggingAudio.value = false;
-  const file = e.dataTransfer?.files[0];
-  if (file && file.type.startsWith('audio/')) {
-    setAudio(file);
+  const files = Array.from(e.dataTransfer?.files || []);
+  const validFiles = files.filter(f => f.type.startsWith('audio/'));
+  if (validFiles.length > 0) {
+    setAudio(validFiles);
   }
 };
 
 const onSelectAudio = (e) => {
-  const file = e.target.files[0];
-  if (file) setAudio(file);
+  const files = Array.from(e.target.files || []);
+  if (files.length > 0) setAudio(files);
   e.target.value = ''; // Reset input
 };
 
-const setAudio = (file) => {
-  audioFile.value = file;
+const setAudio = (files) => {
+  audioFiles.value = files;
 };
 
 const { createProgressStream, mixImageMontage } = useMediaApi();
@@ -415,6 +550,7 @@ const generateVideo = async () => {
   currentStatus.value = 'Uploading files...';
   
   const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+  currentJobId.value = jobId;
   
   // Start SSE connection
   eventSource = createProgressStream(jobId);
@@ -442,11 +578,22 @@ const generateVideo = async () => {
   formData.append('imageDuration', imageDuration.value);
   formData.append('transitionTypes', JSON.stringify(selectedTransitions.value));
   formData.append('transitionDuration', transitionDuration.value);
+  formData.append('resolution', outputResolution.value);
+  
+  let tDurationSeconds = 0;
+  if (targetDurationValue.value > 0) {
+    if (targetDurationUnit.value === 'Seconds') tDurationSeconds = targetDurationValue.value;
+    else if (targetDurationUnit.value === 'Minutes') tDurationSeconds = targetDurationValue.value * 60;
+    else if (targetDurationUnit.value === 'Hours') tDurationSeconds = targetDurationValue.value * 3600;
+  }
+  formData.append('targetDuration', tDurationSeconds);
   
   imageFiles.value.forEach(file => {
     formData.append('image', file);
   });
-  formData.append('audio', audioFile.value);
+  audioFiles.value.forEach(file => {
+    formData.append('audio', file);
+  });
   
   try {
     currentStatus.value = 'Uploading to server...';
@@ -470,6 +617,27 @@ const generateVideo = async () => {
       eventSource.close();
       eventSource = null;
     }
+    currentJobId.value = null;
+  }
+};
+
+const cancelGeneration = async () => {
+  if (!currentJobId.value) return;
+  try {
+    await fetch('/api/editor/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId: currentJobId.value })
+    });
+    isGenerating.value = false;
+    currentStatus.value = 'Cancelled';
+    currentProgress.value = 0;
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  } catch (err) {
+    console.error('Failed to cancel:', err);
   }
 };
 
@@ -483,7 +651,7 @@ const downloadVideo = () => {
 
 const resetEditor = () => {
   imageFiles.value = [];
-  audioFile.value = null;
+  audioFiles.value = [];
   imagePreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
   imagePreviewUrls.value = [];
   
@@ -493,18 +661,29 @@ const resetEditor = () => {
   if (imageInput.value) imageInput.value.value = '';
   if (audioInput.value) audioInput.value.value = '';
 };
+
+const clearImages = () => {
+  imageFiles.value = [];
+  imagePreviewUrls.value.forEach(url => URL.revokeObjectURL(url));
+  imagePreviewUrls.value = [];
+  if (imageInput.value) imageInput.value.value = '';
+};
+
+const clearAudio = () => {
+  audioFiles.value = [];
+  if (audioInput.value) audioInput.value.value = '';
+};
 </script>
 
 <style scoped>
-.editor-container {
-  padding: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: calc(100vh - 100px);
-  display: flex;
-  flex-direction: column;
-}
 
+
+.editor-container {
+  padding: 10px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 10px 24px 10px;
+}
 .glass-header {
   background: rgba(25, 25, 35, 0.6);
   backdrop-filter: blur(20px);
@@ -612,7 +791,7 @@ const resetEditor = () => {
 }
 
 .drop-zone {
-  aspect-ratio: 16/9;
+  height: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -647,9 +826,7 @@ const resetEditor = () => {
 }
 
 .zone-placeholder h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .zone-placeholder p {
@@ -666,6 +843,18 @@ const resetEditor = () => {
 .multi-preview {
   padding: 16px;
   background: rgba(0,0,0,0.2);
+}
+
+.clear-box-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.clear-box-btn:hover {
+  opacity: 1;
 }
 
 .gallery-grid {
@@ -863,6 +1052,107 @@ const resetEditor = () => {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Transition Previews */
+.transition-preview-box {
+  width: 48px;
+  height: 28px;
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.2);
+  margin-left: 16px;
+  background: #2a2a35;
+}
+.preview-layer-1, .preview-layer-2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.preview-layer-1 { background: #FF6B6B; }
+.preview-layer-2 { background: #845EC2; animation-duration: 3s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+
+/* None */
+.preview-none .preview-layer-2 { animation-name: anim-none; }
+@keyframes anim-none { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+/* Fade */
+.preview-fade .preview-layer-2 { animation-name: anim-fade; }
+@keyframes anim-fade { 0%, 30% { opacity: 0; } 50%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Fade Black / Fade White */
+.preview-fadeblack { background: #000; }
+.preview-fadewhite { background: #fff; }
+.preview-fadeblack .preview-layer-1, .preview-fadewhite .preview-layer-1 { animation: anim-fade1 3s infinite; }
+.preview-fadeblack .preview-layer-2, .preview-fadewhite .preview-layer-2 { animation: anim-fade2 3s infinite; }
+@keyframes anim-fade1 { 0%, 30% { opacity: 1; } 45%, 55% { opacity: 0; } 70%, 100% { opacity: 1; } }
+@keyframes anim-fade2 { 0%, 45% { opacity: 0; } 60%, 100% { opacity: 1; } }
+
+/* Wipe Left */
+.preview-wipeleft .preview-layer-2 { animation-name: anim-wipeleft; }
+@keyframes anim-wipeleft {
+  0%, 20% { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+  50%, 80% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  100% { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+}
+
+/* Wipe Right */
+.preview-wiperight .preview-layer-2 { animation-name: anim-wiperight; }
+@keyframes anim-wiperight {
+  0%, 20% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+  50%, 80% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  100% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+}
+
+/* Circle Crop */
+.preview-circlecrop .preview-layer-2 { animation-name: anim-circlecrop; }
+@keyframes anim-circlecrop {
+  0%, 20% { clip-path: circle(0% at 50% 50%); }
+  50%, 80% { clip-path: circle(100% at 50% 50%); }
+  100% { clip-path: circle(0% at 50% 50%); }
+}
+
+/* Rect Crop */
+.preview-rectcrop .preview-layer-2 { animation-name: anim-rectcrop; }
+@keyframes anim-rectcrop {
+  0%, 20% { clip-path: inset(50% 50% 50% 50%); }
+  50%, 80% { clip-path: inset(0% 0% 0% 0%); }
+  100% { clip-path: inset(50% 50% 50% 50%); }
+}
+
+/* Distance (Zoom) */
+.preview-distance .preview-layer-2 { animation-name: anim-distance; transform-origin: center; }
+@keyframes anim-distance {
+  0%, 20% { transform: scale(0.2); opacity: 0; }
+  50%, 80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* Blur */
+.preview-hblur .preview-layer-2 { animation-name: anim-hblur; }
+@keyframes anim-hblur {
+  0%, 20% { opacity: 0; filter: blur(4px); }
+  50%, 80% { opacity: 1; filter: blur(0px); }
+  100% { opacity: 0; filter: blur(4px); }
+}
+
+/* Pixelize */
+.preview-pixelize .preview-layer-2 { animation-name: anim-pixelize; }
+@keyframes anim-pixelize {
+  0%, 20% { opacity: 0; transform: scale(1.1); filter: contrast(150%) brightness(120%); }
+  50%, 80% { opacity: 1; transform: scale(1); filter: contrast(100%) brightness(100%); }
+  100% { opacity: 0; transform: scale(1.1); filter: contrast(150%) brightness(120%); }
+}
+
+/* Radial */
+.preview-radial .preview-layer-2 { animation-name: anim-radial; }
+@keyframes anim-radial {
+  0%, 20% { clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); }
+  50%, 80% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); }
+  100% { clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); }
 }
 
 @media (max-width: 768px) {

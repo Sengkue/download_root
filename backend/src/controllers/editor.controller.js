@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
-import { progressMap } from './download.controller.js';
+import { progressMap, activeJobsMap } from './download.controller.js';
 
 /**
  * Parse time value to seconds (supports HH:MM:SS.ms and raw microseconds).
@@ -43,6 +43,8 @@ export async function probeAudioDuration(audioPath) {
 export function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, progressScale = 100 } = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath, args);
+    if (jobId) activeJobsMap.set(jobId, proc);
+    
     let stdoutBuffer = '';
     let stderrBuffer = '';
 
@@ -72,16 +74,24 @@ export function runFFmpeg(args, { jobId, expectedDuration, progressOffset = 0, p
     });
 
     proc.on('close', (code) => {
-      if (jobId && code === 0) {
-        progressMap.set(jobId, {
-          progress: progressOffset + progressScale,
-          status: `Encoding video... ${Math.round(progressOffset + progressScale)}%`
-        });
+      if (jobId) {
+        activeJobsMap.delete(jobId);
+        if (code === 0) {
+          progressMap.set(jobId, {
+            progress: progressOffset + progressScale,
+            status: `Encoding video... ${Math.round(progressOffset + progressScale)}%`
+          });
+        }
       }
+      
+      // Treat SIGKILL / code 255 as a normal rejection but allow cleanup
       if (code === 0) resolve();
       else reject(new Error(`FFmpeg exited with code ${code}: ${stderrBuffer.slice(-500)}`));
     });
-    proc.on('error', reject);
+    proc.on('error', (err) => {
+      if (jobId) activeJobsMap.delete(jobId);
+      reject(err);
+    });
   });
 }
 
@@ -96,7 +106,7 @@ export const mergeMedia = async (req, res) => {
       return res.status(400).json({ error: 'Both image(s) and audio files are required' });
     }
 
-    const { jobId, zoomDir = 'alternate', zoomSpeed = 'normal', imageDuration = 4, transitionTypes, transitionDuration: reqTransitionDuration = 1 } = req.body;
+    const { jobId, zoomDir = 'alternate', zoomSpeed = 'normal', imageDuration = 4, transitionTypes, transitionDuration: reqTransitionDuration = 1, targetDuration, resolution = '1280:720' } = req.body;
     imageFiles = req.files['image'];
     audioFile = req.files['audio'][0];
     audioPath = path.resolve(audioFile.path);
@@ -105,6 +115,34 @@ export const mergeMedia = async (req, res) => {
     const tmpDir = os.tmpdir();
     const outputPath = path.join(tmpDir, `merged-${tmpId}.mp4`);
     tmpFiles.push(outputPath);
+
+    // ─── Pass 0: Merge Audio (if multiple) ───
+    if (req.files['audio'].length > 1) {
+      if (jobId) progressMap.set(jobId, { progress: 0, status: 'Merging audio tracks...' });
+      const mergedAudioPath = path.join(tmpDir, `merged-audio-${tmpId}.aac`);
+      tmpFiles.push(mergedAudioPath);
+      
+      const audioArgs = [];
+      let filterComplex = '';
+      
+      let concatInputs = '';
+      for (let i = 0; i < req.files['audio'].length; i++) {
+        audioArgs.push('-i', path.resolve(req.files['audio'][i].path));
+        filterComplex += `[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`;
+        concatInputs += `[a${i}]`;
+      }
+      filterComplex += `${concatInputs}concat=n=${req.files['audio'].length}:v=0:a=1[aout]`;
+      
+      audioArgs.push(
+        '-filter_complex', filterComplex,
+        '-map', '[aout]',
+        '-c:a', 'aac', '-b:a', '192k',
+        '-y', mergedAudioPath
+      );
+      
+      await runFFmpeg(audioArgs);
+      audioPath = mergedAudioPath;
+    }
 
     // ─── Probe audio duration ───
     if (jobId) progressMap.set(jobId, { progress: 0, status: 'Analyzing audio track...' });
@@ -115,8 +153,11 @@ export const mergeMedia = async (req, res) => {
       audioDuration = 10; // safe default if duration couldn't be probed
     }
 
+    const tTarget = parseFloat(targetDuration) || 0;
+    const targetLength = tTarget > 0 ? tTarget : audioDuration;
+
     // ─── Zoom settings (jitter-free Ken Burns) ───
-    const FPS = 25;
+    const FPS = 30; // 30fps perfectly divides 60Hz screens, drastically reducing panning judder
 
     // Zoom range: how much total zoom is applied (e.g. 0.3 = zoom from 1.0x to 1.3x)
     let zoomRange = 0.3; // Default to 30%
@@ -131,20 +172,17 @@ export const mergeMedia = async (req, res) => {
       }
     }
 
-    // CRITICAL: trunc() on x,y eliminates subpixel rounding jitter (the #1 cause of shaking)
-    // Without trunc(), fractional pixel positions round differently each frame → ±1px wobble
-    const centerExpr = `x='trunc((iw-iw/zoom)/2)':y='trunc((ih-ih/zoom)/2)'`;
+    // SUPER FIX for jitter:
+    // 1. Remove `trunc()`! Truncation causes erratic 1-px jumps (1, 2, 2, 1) rather than smooth decimal rounding.
+    const centerExpr = `x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'`;
 
-    // Input resolution for zoompan source — SUPER FIX: upscale to 4K (3840x2160)
-    // Running zoompan at 4K and downscaling to 720p turns 1-pixel rounding jumps into smooth sub-pixel interpolation!
-    const ZP_INPUT_W = 3840;
-    const ZP_INPUT_H = 2160;
+    // 2. Upscale to 8K (8192x4608) before zoompan! 
+    // FFmpeg's zoompan crops to integer pixels. At 8K, a 1-pixel jump is invisible when downscaled to 1080p.
+    const ZP_INPUT_W = 8192;
+    const ZP_INPUT_H = 4608;
 
     const getZoompanFilter = (dir, durationFrames) => {
       // CRITICAL: Use absolute position formula (on/d) instead of incremental (zoom+step).
-      // Incremental "zoom+0.001" accumulates floating-point errors over hundreds of frames,
-      // causing visible drift. Absolute "1 + range * (on/d)" calculates each frame independently.
-      // SUPER FIX: Output size is 4K (s=${ZP_INPUT_W}x${ZP_INPUT_H}) instead of 1280x720.
       if (dir === 'none') {
         return `zoompan=z='1':d=${durationFrames}:fps=${FPS}:s=${ZP_INPUT_W}x${ZP_INPUT_H}`;
       } else if (dir === 'out') {
@@ -162,21 +200,30 @@ export const mergeMedia = async (req, res) => {
     if (imageFiles.length === 1) {
       const imagePath = path.resolve(imageFiles[0].path);
       const actualDir = zoomDir === 'alternate' ? 'in' : zoomDir;
-      const totalFrames = Math.max(1, Math.ceil(audioDuration * FPS));
+      const totalFrames = Math.max(1, Math.ceil(targetLength * FPS));
       const singleZoompan = getZoompanFilter(actualDir, totalFrames);
 
       if (jobId) progressMap.set(jobId, { progress: 2, status: 'Encoding video... 2%' });
 
-      await runFFmpeg([
-        '-loop', '1', '-t', '0.04', '-i', imagePath,
+      const singleArgs = [
+        '-loop', '1', '-t', '0.04', '-i', imagePath
+      ];
+      
+      if (tTarget > 0) {
+        singleArgs.push('-stream_loop', '-1');
+      }
+      singleArgs.push(
         '-i', audioPath,
+        '-map', '0:v', '-map', '1:a',
         '-c:v', 'libx264', '-preset', 'veryfast',
         '-c:a', 'aac', '-b:a', '192k', '-pix_fmt', 'yuv420p',
-        '-vf', `scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${singleZoompan},scale=1280:720:flags=bicubic,setpts=PTS-STARTPTS,format=yuv420p`,
-        '-t', audioDuration.toString(),
+        '-vf', `scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${singleZoompan},scale=${resolution}:flags=bilinear,setpts=PTS-STARTPTS,format=yuv420p`,
+        '-t', targetLength.toString(),
         '-y', '-progress', 'pipe:1',
         outputPath
-      ], { jobId, expectedDuration: audioDuration, progressOffset: 2, progressScale: 97 });
+      );
+
+      await runFFmpeg(singleArgs, { jobId, expectedDuration: targetLength, progressOffset: 2, progressScale: 97 });
 
     // ══════════════════════════════════════════════════════════
     // MULTIPLE IMAGES — Two-Pass: create slideshow, then loop
@@ -187,8 +234,26 @@ export const mergeMedia = async (req, res) => {
       const durationFrames = durationPerImage * FPS;
       const slideshowPath = path.join(tmpDir, `slideshow-${tmpId}.mp4`);
       tmpFiles.push(slideshowPath);
+      const allTransitions = [
+        'fade', 'fadeblack', 'fadewhite', 'wipeleft', 'wiperight', 
+        'circlecrop', 'rectcrop', 'distance', 'radial', 'pixelize', 'hblur'
+      ];
 
-      const isNoneTransition = transitionTypes && (transitionTypes.includes('none') || transitionDuration <= 0);
+      let parsedTransitionTypes = [];
+      try {
+        if (transitionTypes) {
+          parsedTransitionTypes = JSON.parse(transitionTypes);
+        }
+      } catch (e) {
+        console.warn('Failed to parse transitionTypes', e);
+      }
+      
+      if (!Array.isArray(parsedTransitionTypes) || parsedTransitionTypes.length === 0) {
+        parsedTransitionTypes = allTransitions;
+      }
+
+      // Fix: Only disable transitions if 'none' is the ONLY transition selected, or duration is 0
+      const isNoneTransition = transitionDuration <= 0 || (parsedTransitionTypes.length === 1 && parsedTransitionTypes[0] === 'none');
 
       // Slideshow duration with overlapping transitions
       const slideshowDuration = isNoneTransition 
@@ -211,27 +276,9 @@ export const mergeMedia = async (req, res) => {
           currentDir = (i % 2 === 0) ? 'in' : 'out';
         }
         const zp = getZoompanFilter(currentDir, durationFrames);
-        filterComplex += `[${i}:v]scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${zp},scale=1280:720:flags=bicubic,setpts=PTS-STARTPTS,format=yuv420p[v${i}]; `;
+        filterComplex += `[${i}:v]scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${zp},scale=${resolution}:flags=bilinear,setpts=PTS-STARTPTS,format=yuv420p[v${i}]; `;
       }
 
-      // SUPER FIX: Use only universally supported transitions for random to avoid "Not yet implemented" crashes
-      const allTransitions = [
-        'fade', 'fadeblack', 'fadewhite', 'wipeleft', 'wiperight', 
-        'circlecrop', 'rectcrop', 'distance', 'radial', 'pixelize', 'hblur'
-      ];
-
-      let parsedTransitionTypes = [];
-      try {
-        if (transitionTypes) {
-          parsedTransitionTypes = JSON.parse(transitionTypes);
-        }
-      } catch (e) {
-        console.warn('Failed to parse transitionTypes', e);
-      }
-      
-      if (!Array.isArray(parsedTransitionTypes) || parsedTransitionTypes.length === 0) {
-        parsedTransitionTypes = allTransitions;
-      }
 
       if (isNoneTransition) {
         let concatNodes = '';
@@ -287,23 +334,34 @@ export const mergeMedia = async (req, res) => {
 
       console.log(`[FFmpeg] ✅ Pass 1 done: slideshow clip (${slideshowDuration.toFixed(1)}s)`);
 
-      // ── Pass 2: Loop the slideshow over the full audio ──
+      // ── Pass 2: Loop the slideshow over the full audio or target duration ──
       if (jobId) progressMap.set(jobId, { progress: 65, status: 'Looping slideshow over audio...' });
 
-      const loopCount = Math.max(0, Math.ceil(audioDuration / slideshowDuration) - 1);
+      const loopCount = Math.max(0, Math.ceil(targetLength / slideshowDuration) - 1);
+      
+      const pass2Args = [
+        '-stream_loop', loopCount.toString(), '-i', slideshowPath
+      ];
+      
+      if (tTarget > 0) {
+        pass2Args.push('-stream_loop', '-1');
+      }
+      const fadeOutStart = Math.max(0, targetLength - 2);
 
-      await runFFmpeg([
-        '-stream_loop', loopCount.toString(), '-i', slideshowPath,
+      pass2Args.push(
         '-i', audioPath,
-        '-map', '0:v', '-map', '1:a',
+        '-filter_complex', `[1:a]afade=t=out:st=${fadeOutStart}:d=2[aout]`,
+        '-map', '0:v', '-map', '[aout]',
         '-c:v', 'copy',         // NO re-encoding! Preserves exact quality from Pass 1
         '-c:a', 'aac', '-b:a', '192k',
-        '-t', audioDuration.toString(),
+        '-t', targetLength.toString(),
         '-y', '-progress', 'pipe:1',
         outputPath
-      ], { jobId, expectedDuration: audioDuration, progressOffset: 65, progressScale: 34 });
+      );
 
-      console.log(`[FFmpeg] ✅ Pass 2 done: looped over audio (${audioDuration.toFixed(1)}s)`);
+      await runFFmpeg(pass2Args, { jobId, expectedDuration: targetLength, progressOffset: 65, progressScale: 34 });
+
+      console.log(`[FFmpeg] ✅ Pass 2 done: looped over audio (${targetLength.toFixed(1)}s)`);
     }
 
     // ─── Send the result ───
@@ -323,7 +381,7 @@ export const mergeMedia = async (req, res) => {
       setTimeout(() => {
         if (jobId) progressMap.delete(jobId);
       }, 5000);
-      cleanup(imageFiles, audioPath, tmpFiles);
+      cleanup(req, imageFiles, audioPath, tmpFiles);
     });
 
   } catch (error) {
@@ -332,23 +390,43 @@ export const mergeMedia = async (req, res) => {
       progressMap.set(req.body.jobId, { progress: 0, status: 'Error: encoding failed' });
       setTimeout(() => progressMap.delete(req.body.jobId), 5000);
     }
-    cleanup(imageFiles || [], audioPath || '', tmpFiles);
+    cleanup(req, imageFiles || [], audioPath || '', tmpFiles);
     if (!res.headersSent) {
       res.status(500).json({ error: error.message || 'Failed to generate video' });
     }
   }
 };
 
+export const cancelJob = (req, res) => {
+  const { jobId } = req.body;
+  if (!jobId) return res.status(400).json({ error: 'jobId is required' });
+  
+  const proc = activeJobsMap.get(jobId);
+  if (proc) {
+    proc.kill('SIGKILL');
+    activeJobsMap.delete(jobId);
+    progressMap.set(jobId, { progress: 0, status: 'Cancelled by user' });
+    return res.json({ message: 'Job cancelled successfully' });
+  } else {
+    return res.status(404).json({ message: 'Job not found or already finished' });
+  }
+};
+
 /**
  * Clean up all temporary files (uploaded images, audio, intermediate clips).
  */
-function cleanup(imageFiles, audioPath, tmpFiles) {
+function cleanup(req, imageFiles, audioPath, tmpFiles) {
   if (imageFiles) {
     for (const img of imageFiles) {
       try { fs.unlinkSync(path.resolve(img.path)); } catch (_) {}
     }
   }
-  if (audioPath) {
+  
+  if (req.files && req.files['audio']) {
+    for (const a of req.files['audio']) {
+      try { fs.unlinkSync(path.resolve(a.path)); } catch (_) {}
+    }
+  } else if (audioPath && !tmpFiles.includes(audioPath)) {
     try { fs.unlinkSync(audioPath); } catch (_) {}
   }
   if (tmpFiles) {

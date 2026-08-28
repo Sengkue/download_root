@@ -52,12 +52,41 @@ export const mixVideo = async (req, res) => {
       return res.status(400).json({ error: 'Video file is required' });
     }
 
-    const { jobId, videoSpeed = 1.0, transitionDuration = 1.0, transitionTypes, keepOriginalAudio, targetDuration } = req.body;
+    const { jobId, videoSpeed = 1.0, transitionDuration = 1.0, transitionTypes, keepOriginalAudio, targetDuration, resolution = '1280:720' } = req.body;
     const videoFiles = req.files['video'];
-    const audioFile = req.files['audio'] ? req.files['audio'][0] : null;
-    
-    const audioPath = audioFile ? path.resolve(audioFile.path) : null;
-    if (audioPath) tmpFiles.push(audioPath);
+    let audioPath = null;
+    if (req.files['audio'] && req.files['audio'].length === 1) {
+      audioPath = path.resolve(req.files['audio'][0].path);
+      tmpFiles.push(audioPath);
+    } else if (req.files['audio'] && req.files['audio'].length > 1) {
+      if (jobId) progressMap.set(jobId, { progress: 0, status: 'Merging audio tracks...' });
+      const tmpIdMerge = Date.now().toString() + '-' + Math.round(Math.random() * 1000);
+      const mergedAudioPath = path.join(tmpDir, `merged-audio-${tmpIdMerge}.aac`);
+      tmpFiles.push(mergedAudioPath);
+      
+      const audioArgs = [];
+      let filterComplex = '';
+      
+      let concatInputs = '';
+      for (let i = 0; i < req.files['audio'].length; i++) {
+        const p = path.resolve(req.files['audio'][i].path);
+        tmpFiles.push(p);
+        audioArgs.push('-i', p);
+        filterComplex += `[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`;
+        concatInputs += `[a${i}]`;
+      }
+      filterComplex += `${concatInputs}concat=n=${req.files['audio'].length}:v=0:a=1[aout]`;
+      
+      audioArgs.push(
+        '-filter_complex', filterComplex,
+        '-map', '[aout]',
+        '-c:a', 'aac', '-b:a', '192k',
+        '-y', mergedAudioPath
+      );
+      
+      await runFFmpeg(audioArgs);
+      audioPath = mergedAudioPath;
+    }
     
     const videoPaths = videoFiles.map(f => {
       const p = path.resolve(f.path);
@@ -120,7 +149,26 @@ export const mixVideo = async (req, res) => {
     }
 
     let totalExpectedDuration = finalDurations.reduce((a, b) => a + b, 0);
-    const isNoneTransition = transitionTypes && (transitionTypes.includes('none') || transitionDuration <= 0);
+
+    const allTransitions = [
+      'fade', 'fadeblack', 'fadewhite', 'wipeleft', 'wiperight', 
+      'circlecrop', 'rectcrop', 'distance', 'radial', 'pixelize', 'hblur'
+    ];
+
+    let parsedTransitionTypes = [];
+    try {
+      if (transitionTypes) {
+        parsedTransitionTypes = JSON.parse(transitionTypes);
+      }
+    } catch (e) {
+      console.warn('Failed to parse transitionTypes', e);
+    }
+    
+    if (!Array.isArray(parsedTransitionTypes) || parsedTransitionTypes.length === 0) {
+      parsedTransitionTypes = allTransitions;
+    }
+
+    const isNoneTransition = transitionDuration <= 0 || (parsedTransitionTypes.length === 1 && parsedTransitionTypes[0] === 'none');
 
     if (finalVideoPaths.length > 1 && !isNoneTransition) {
       totalExpectedDuration -= (finalVideoPaths.length - 1) * tDur;
@@ -128,6 +176,8 @@ export const mixVideo = async (req, res) => {
 
     if (tTarget > 0) {
        totalExpectedDuration = tTarget;
+    } else if (audioDuration > 0) {
+       totalExpectedDuration = audioDuration;
     }
 
     if (jobId) {
@@ -164,28 +214,11 @@ export const mixVideo = async (req, res) => {
     
     // Scale, crop, normalize framerate, and adjust speed for all inputs
     for (let i = 0; i < finalVideoPaths.length; i++) {
-      filterComplex += `[${i}:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,setsar=1,fps=30,setpts=${ptsMultiplier}*PTS,format=yuv420p[v${i}]; `;
+      filterComplex += `[${i}:v]scale=${resolution}:force_original_aspect_ratio=increase,crop=${resolution},setsar=1,fps=30,setpts=${ptsMultiplier}*PTS,format=yuv420p[v${i}]; `;
     }
 
     // 3. Transitions
-    const allTransitions = [
-      'fade', 'fadeblack', 'fadewhite', 'wipeleft', 'wiperight', 
-      'circlecrop', 'rectcrop', 'distance', 'radial', 'pixelize', 'hblur'
-    ];
 
-    let parsedTransitionTypes = [];
-    try {
-      if (transitionTypes) {
-        parsedTransitionTypes = JSON.parse(transitionTypes);
-      }
-    } catch (e) {
-      console.warn('Failed to parse transitionTypes', e);
-    }
-    
-    if (!Array.isArray(parsedTransitionTypes) || parsedTransitionTypes.length === 0) {
-      parsedTransitionTypes = allTransitions;
-    }
-    
     if (finalVideoPaths.length === 1) {
       // Single video, no transitions
       filterComplex += `[v0]null[vout]`;
@@ -226,32 +259,42 @@ export const mixVideo = async (req, res) => {
     // Handle Audio Routing Logic
     const keepAudio = keepOriginalAudio === 'true';
     let hasAout = false;
+    let audioOutputNode = '';
 
     if (finalVideoPaths.length === 1) {
       if (keepAudio && audioPath) {
         // Blend original video audio and new audio
         filterComplex += `; [0:a][1:a]amix=inputs=2:duration=longest[aout]`;
         hasAout = true;
+        audioOutputNode = 'aout';
+      } else if (keepAudio && !audioPath) {
+        audioOutputNode = '0:a';
+      } else if (!keepAudio && audioPath) {
+        audioOutputNode = '1:a:0';
+      }
+    } else {
+      if (audioPath) {
+        audioOutputNode = `${audioInputIndex}:a:0`;
       }
     }
 
+    // Fade out settings
+    const fadeOutDuration = 1.5;
+    const fadeOutStart = Math.max(0, (totalExpectedDuration || 10) - fadeOutDuration);
+
+    // Apply video fade out
+    filterComplex += `; [vout]fade=t=out:st=${fadeOutStart}:d=${fadeOutDuration}[vout_final]`;
+
+    // Apply audio fade out if we have an audio output node
+    if (audioOutputNode) {
+      filterComplex += `; [${audioOutputNode}]afade=t=out:st=${fadeOutStart}:d=${fadeOutDuration}[aout_final]`;
+    }
+
     ffmpegArgs.push('-filter_complex', filterComplex);
-    ffmpegArgs.push('-map', '[vout]');
+    ffmpegArgs.push('-map', '[vout_final]');
     
-    if (finalVideoPaths.length === 1) {
-      if (hasAout) {
-        ffmpegArgs.push('-map', '[aout]'); // Mixed audio
-      } else if (keepAudio && !audioPath) {
-        ffmpegArgs.push('-map', '0:a?'); // Keep original only (fallback if no audio stream)
-      } else if (!keepAudio && audioPath) {
-        ffmpegArgs.push('-map', '1:a:0'); // Replace with new audio only
-      }
-      // If !keepAudio and !audioPath -> no audio map (mute)
-    } else {
-      // Multiple videos (original audio disabled in UI)
-      if (audioPath) {
-        ffmpegArgs.push('-map', `${audioInputIndex}:a:0`);
-      }
+    if (audioOutputNode) {
+      ffmpegArgs.push('-map', '[aout_final]');
     }
 
     ffmpegArgs.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '23', '-pix_fmt', 'yuv420p'); 
