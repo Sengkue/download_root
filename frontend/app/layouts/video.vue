@@ -36,7 +36,7 @@
           title="Photo Mixer" 
           subtitle="Photos to Video"
           rounded="lg"
-          active-color="primary"
+          color="primary"
           class="nav-item mb-1"
         ></v-list-item>
 
@@ -46,7 +46,7 @@
           title="Video Mixer" 
           subtitle="Merge & Speed Edit"
           rounded="lg"
-          active-color="primary"
+          color="primary"
           class="nav-item mb-1"
         ></v-list-item>
       </v-list>

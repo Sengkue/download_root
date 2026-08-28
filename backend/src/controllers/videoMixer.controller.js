@@ -52,7 +52,7 @@ export const mixVideo = async (req, res) => {
       return res.status(400).json({ error: 'Video file is required' });
     }
 
-    const { jobId, videoSpeed = 1.0, transitionDuration = 1.0, transitionTypes, keepOriginalAudio } = req.body;
+    const { jobId, videoSpeed = 1.0, transitionDuration = 1.0, transitionTypes, keepOriginalAudio, targetDuration } = req.body;
     const videoFiles = req.files['video'];
     const audioFile = req.files['audio'] ? req.files['audio'][0] : null;
     
@@ -78,6 +78,7 @@ export const mixVideo = async (req, res) => {
     const tDur = parseFloat(transitionDuration);
     const speed = parseFloat(videoSpeed);
     const audioDuration = audioPath ? await probeAudioDuration(audioPath) : 0;
+    const tTarget = parseFloat(targetDuration) || 0;
 
     // 1. Get adjusted durations for the base uploaded videos
     const baseDurations = [];
@@ -101,12 +102,14 @@ export const mixVideo = async (req, res) => {
       // Multiple videos: Adjust duration for overlapping transitions
       baseSequenceDuration -= (videoPaths.length - 1) * tDur;
       
-      // Determine how many times to repeat the entire sequence to cover the audio length
+      // Determine how many times to repeat the entire sequence to cover the target duration or audio length
       let repeatCount = 1;
-      if (audioDuration > 0 && baseSequenceDuration > 0 && baseSequenceDuration < audioDuration) {
-        repeatCount = Math.ceil(audioDuration / baseSequenceDuration);
-        // Cap at 30 loops to prevent excessive memory/CPU from massive filtergraphs
-        if (repeatCount > 30) repeatCount = 30;
+      let targetLength = tTarget > 0 ? tTarget : audioDuration;
+      
+      if (targetLength > 0 && baseSequenceDuration > 0 && baseSequenceDuration < targetLength) {
+        repeatCount = Math.ceil(targetLength / baseSequenceDuration);
+        // Cap at 100 loops to prevent OS file limit errors (100 loops of a few videos = ~300 inputs)
+        if (repeatCount > 100) repeatCount = 100;
       }
       
       // Rebuild the final sequence by duplicating the arrays
@@ -123,6 +126,10 @@ export const mixVideo = async (req, res) => {
       totalExpectedDuration -= (finalVideoPaths.length - 1) * tDur;
     }
 
+    if (tTarget > 0) {
+       totalExpectedDuration = tTarget;
+    }
+
     if (jobId) {
       progressMap.set(jobId, { progress: 5, status: 'Building montage filter graph...' });
     }
@@ -131,9 +138,9 @@ export const mixVideo = async (req, res) => {
     const ffmpegArgs = [];
     
     if (finalVideoPaths.length === 1) {
-      // Loop the single video infinitely at the input level ONLY if audioPath is present
-      if (audioPath) {
-        ffmpegArgs.push('-stream_loop', '-1');
+      // Loop the single video infinitely at the input level if audio is present OR targetDuration > 0
+      if (audioPath || tTarget > 0) {
+        ffmpegArgs.push('-stream_loop', '-1', '-fflags', '+genpts');
       }
       ffmpegArgs.push('-i', finalVideoPaths[0]);
     } else {
@@ -144,6 +151,10 @@ export const mixVideo = async (req, res) => {
     }
     
     if (audioPath) {
+      if (tTarget > 0) {
+        // Loop audio if user explicitly set a target duration
+        ffmpegArgs.push('-stream_loop', '-1');
+      }
       ffmpegArgs.push('-vn', '-i', audioPath);
     }
     
@@ -177,7 +188,7 @@ export const mixVideo = async (req, res) => {
     
     if (finalVideoPaths.length === 1) {
       // Single video, no transitions
-      filterComplex += `[v0]copy[vout]`;
+      filterComplex += `[v0]null[vout]`;
     } else if (isNoneTransition) {
       let concatNodes = '';
       for (let i = 0; i < finalVideoPaths.length; i++) {
@@ -248,7 +259,13 @@ export const mixVideo = async (req, res) => {
     if (audioPath || keepAudio) {
       ffmpegArgs.push('-c:a', 'aac', '-b:a', '192k');
     }
-    ffmpegArgs.push('-shortest'); // End when the shortest stream (video montage or audio) ends
+    
+    if (tTarget > 0) {
+      ffmpegArgs.push('-t', tTarget.toString());
+    } else {
+      ffmpegArgs.push('-shortest'); // End when the shortest stream (video montage or audio) ends
+    }
+    
     ffmpegArgs.push('-y', '-progress', 'pipe:1', outputPath);
 
     // Run the re-encode

@@ -126,6 +126,29 @@
               theme="dark"
               :menu-props="{ contentClass: 'bg-grey-darken-4' }"
             >
+              <template v-slot:prepend-item>
+                <v-list-item
+                  ripple
+                  @click="toggleAllTransitions"
+                  class="transition-list-item"
+                >
+                  <template v-slot:prepend>
+                    <v-list-item-action start>
+                      <v-checkbox-btn
+                        :model-value="likesAllTransitions"
+                        :indeterminate="likesSomeTransitions"
+                        color="primary"
+                      ></v-checkbox-btn>
+                    </v-list-item-action>
+                    <v-icon icon="mdi-check-all" :color="likesAllTransitions ? 'primary' : 'grey-lighten-1'" class="mr-3"></v-icon>
+                  </template>
+                  <v-list-item-title :class="likesAllTransitions ? 'text-primary font-weight-bold' : 'text-white'">
+                    Select All / Clear All
+                  </v-list-item-title>
+                </v-list-item>
+                <v-divider class="my-1"></v-divider>
+              </template>
+              
               <template v-slot:selection="{ item, index }">
                 <v-chip v-if="index < 2" color="primary" size="small" variant="flat" class="font-weight-bold mr-1">
                   {{ item.raw.title }}
@@ -151,6 +174,12 @@
                   <v-list-item-title :class="isActive ? 'text-primary font-weight-bold' : 'text-white'">
                     {{ item.raw.title }}
                   </v-list-item-title>
+                  <template v-slot:append>
+                    <div class="transition-preview-box" :class="'preview-' + item.raw.value">
+                      <div class="preview-layer-1"></div>
+                      <div class="preview-layer-2"></div>
+                    </div>
+                  </template>
                 </v-list-item>
               </template>
             </v-select>
@@ -158,6 +187,42 @@
         </v-row>
 
         <v-row class="mt-2">
+          <v-col cols="12" md="6">
+            <div class="d-flex justify-space-between align-center mb-2">
+              <p class="font-weight-bold mb-0 text-white">Target Video Length</p>
+              <span class="text-caption text-primary font-weight-bold">
+                {{ targetDurationValue > 0 ? targetDurationValue + ' ' + targetDurationUnit : 'Auto (Shortest)' }}
+              </span>
+            </div>
+            <div class="d-flex align-center mt-2" style="gap: 12px;">
+              <v-text-field
+                v-model.number="targetDurationValue"
+                type="number"
+                min="0"
+                density="compact"
+                hide-details
+                variant="outlined"
+                bg-color="rgba(255,255,255,0.05)"
+                color="primary"
+                class="rounded-lg"
+                placeholder="0 = Auto"
+              ></v-text-field>
+              <v-select
+                v-model="targetDurationUnit"
+                :items="['Seconds', 'Minutes', 'Hours']"
+                density="compact"
+                hide-details
+                variant="outlined"
+                bg-color="rgba(255,255,255,0.05)"
+                color="primary"
+                class="rounded-lg"
+                style="max-width: 140px;"
+                theme="dark"
+                :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+              ></v-select>
+            </div>
+          </v-col>
+
           <v-col cols="12" md="6">
             <div class="d-flex justify-space-between align-center mb-2">
               <p class="font-weight-bold mb-0 text-white">Transition Duration</p>
@@ -183,7 +248,9 @@
               </template>
             </v-slider>
           </v-col>
+        </v-row>
 
+        <v-row class="mt-2">
           <v-col cols="12" md="6" class="d-flex align-center">
             <v-switch
               v-model="keepOriginalAudio"
@@ -292,6 +359,8 @@ const audioFile = ref(null);
 
 const videoSpeed = ref(1.0);
 const transitionDuration = ref(1.0);
+const targetDurationValue = ref(0);
+const targetDurationUnit = ref('Hours');
 const keepOriginalAudio = ref(false);
 const transitionOptions = [
   { title: 'None (Hard Cut)', value: 'none', icon: 'mdi-format-horizontal-align-center' },
@@ -309,6 +378,17 @@ const transitionOptions = [
 ];
 
 const selectedTransitions = ref(transitionOptions.map(t => t.value));
+
+const likesAllTransitions = computed(() => selectedTransitions.value.length === transitionOptions.length);
+const likesSomeTransitions = computed(() => selectedTransitions.value.length > 0 && !likesAllTransitions.value);
+
+const toggleAllTransitions = () => {
+  if (likesAllTransitions.value) {
+    selectedTransitions.value = [];
+  } else {
+    selectedTransitions.value = transitionOptions.map(t => t.value);
+  }
+};
 
 const isGenerating = ref(false);
 const videoUrl = ref(null);
@@ -393,6 +473,14 @@ const generateVideo = async () => {
   formData.append('transitionDuration', transitionDuration.value);
   formData.append('transitionTypes', JSON.stringify(selectedTransitions.value));
   formData.append('keepOriginalAudio', keepOriginalAudio.value);
+  
+  let tDurationSeconds = 0;
+  if (targetDurationValue.value > 0) {
+    if (targetDurationUnit.value === 'Seconds') tDurationSeconds = targetDurationValue.value;
+    else if (targetDurationUnit.value === 'Minutes') tDurationSeconds = targetDurationValue.value * 60;
+    else if (targetDurationUnit.value === 'Hours') tDurationSeconds = targetDurationValue.value * 3600;
+  }
+  formData.append('targetDuration', tDurationSeconds);
   
   videoFiles.value.forEach(file => {
     formData.append('video', file);
@@ -666,5 +754,106 @@ onUnmounted(() => {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Transition Previews */
+.transition-preview-box {
+  width: 48px;
+  height: 28px;
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.2);
+  margin-left: 16px;
+  background: #2a2a35;
+}
+.preview-layer-1, .preview-layer-2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.preview-layer-1 { background: #FF6B6B; }
+.preview-layer-2 { background: #845EC2; animation-duration: 3s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+
+/* None */
+.preview-none .preview-layer-2 { animation-name: anim-none; }
+@keyframes anim-none { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+/* Fade */
+.preview-fade .preview-layer-2 { animation-name: anim-fade; }
+@keyframes anim-fade { 0%, 30% { opacity: 0; } 50%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Fade Black / Fade White */
+.preview-fadeblack { background: #000; }
+.preview-fadewhite { background: #fff; }
+.preview-fadeblack .preview-layer-1, .preview-fadewhite .preview-layer-1 { animation: anim-fade1 3s infinite; }
+.preview-fadeblack .preview-layer-2, .preview-fadewhite .preview-layer-2 { animation: anim-fade2 3s infinite; }
+@keyframes anim-fade1 { 0%, 30% { opacity: 1; } 45%, 55% { opacity: 0; } 70%, 100% { opacity: 1; } }
+@keyframes anim-fade2 { 0%, 45% { opacity: 0; } 60%, 100% { opacity: 1; } }
+
+/* Wipe Left */
+.preview-wipeleft .preview-layer-2 { animation-name: anim-wipeleft; }
+@keyframes anim-wipeleft {
+  0%, 20% { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+  50%, 80% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  100% { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+}
+
+/* Wipe Right */
+.preview-wiperight .preview-layer-2 { animation-name: anim-wiperight; }
+@keyframes anim-wiperight {
+  0%, 20% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+  50%, 80% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  100% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+}
+
+/* Circle Crop */
+.preview-circlecrop .preview-layer-2 { animation-name: anim-circlecrop; }
+@keyframes anim-circlecrop {
+  0%, 20% { clip-path: circle(0% at 50% 50%); }
+  50%, 80% { clip-path: circle(100% at 50% 50%); }
+  100% { clip-path: circle(0% at 50% 50%); }
+}
+
+/* Rect Crop */
+.preview-rectcrop .preview-layer-2 { animation-name: anim-rectcrop; }
+@keyframes anim-rectcrop {
+  0%, 20% { clip-path: inset(50% 50% 50% 50%); }
+  50%, 80% { clip-path: inset(0% 0% 0% 0%); }
+  100% { clip-path: inset(50% 50% 50% 50%); }
+}
+
+/* Distance (Zoom) */
+.preview-distance .preview-layer-2 { animation-name: anim-distance; transform-origin: center; }
+@keyframes anim-distance {
+  0%, 20% { transform: scale(0.2); opacity: 0; }
+  50%, 80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* Blur */
+.preview-hblur .preview-layer-2 { animation-name: anim-hblur; }
+@keyframes anim-hblur {
+  0%, 20% { opacity: 0; filter: blur(4px); }
+  50%, 80% { opacity: 1; filter: blur(0px); }
+  100% { opacity: 0; filter: blur(4px); }
+}
+
+/* Pixelize */
+.preview-pixelize .preview-layer-2 { animation-name: anim-pixelize; }
+@keyframes anim-pixelize {
+  0%, 20% { opacity: 0; transform: scale(1.1); filter: contrast(150%) brightness(120%); }
+  50%, 80% { opacity: 1; transform: scale(1); filter: contrast(100%) brightness(100%); }
+  100% { opacity: 0; transform: scale(1.1); filter: contrast(150%) brightness(120%); }
+}
+
+/* Radial */
+.preview-radial .preview-layer-2 { animation-name: anim-radial; }
+@keyframes anim-radial {
+  0%, 20% { clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); }
+  50%, 80% { clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%); }
+  100% { clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%); }
 }
 </style>

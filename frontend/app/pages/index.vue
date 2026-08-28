@@ -3,7 +3,7 @@
     <!-- Dark/Fire Environment Overlay -->
     <div class="fire-environment"></div>
     
-    <!-- Realistic Embers -->
+    <!-- Realistic Embers (Optimized) -->
     <div class="embers-container">
       <div 
         v-for="ember in embers" 
@@ -15,17 +15,19 @@
           animationDelay: ember.delay + 's',
           width: ember.size + 'px',
           height: ember.size + 'px',
-          opacity: ember.opacity,
-          filter: `blur(${ember.blur}px)`
+          opacity: ember.opacity
         }"
       ></div>
     </div>
+
+    <!-- Lightning Cursor Canvas -->
+    <canvas ref="lightningCanvas" class="lightning-canvas"></canvas>
 
     <!-- Main Content -->
     <v-container class="py-4 py-md-8 position-relative z-10">
       <v-row justify="center" class="mb-4 mb-md-6">
         <v-col cols="12" class="text-center position-relative px-4">
-          <h1 class="text-h5 text-md-h3 font-weight-black mb-2 realistic-fire-text">DASHBOARD</h1>
+          <h1 class="text-h5 text-md-h3 font-weight-black mb-2 dashboard-title">DASHBOARD</h1>
           <p class="text-body-2 text-md-subtitle-1 text-white text-opacity-80">Welcome to the ME System core. Select a module below.</p>
         </v-col>
       </v-row>
@@ -80,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 definePageMeta({
   layout: 'default'
@@ -133,21 +135,154 @@ const modules = ref([
 
 const embers = ref([]);
 
+// Lightning Cursor Effect State
+const lightningCanvas = ref(null);
+let ctx = null;
+let animationFrameId = null;
+const trail = [];
+let currentMouse = { x: -1000, y: -1000 };
+let lastMoveTime = 0;
+
+const onMouseMove = (e) => {
+  currentMouse.x = e.clientX;
+  currentMouse.y = e.clientY;
+  lastMoveTime = Date.now();
+
+  const jitterX = (Math.random() - 0.5) * 20;
+  const jitterY = (Math.random() - 0.5) * 20;
+  
+  trail.push({ 
+    x: currentMouse.x + jitterX, 
+    y: currentMouse.y + jitterY, 
+    age: 0 
+  });
+};
+
+const resizeCanvas = () => {
+  if (lightningCanvas.value && ctx) {
+    const dpr = window.devicePixelRatio || 1;
+    lightningCanvas.value.width = window.innerWidth * dpr;
+    lightningCanvas.value.height = window.innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+  }
+};
+
+const drawLightning = () => {
+  if (!ctx || !lightningCanvas.value) return;
+  
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+  // If mouse is perfectly still, generate stationary crackling electricity!
+  if (currentMouse.x !== -1000 && (Date.now() - lastMoveTime > 30)) {
+    if (Math.random() > 0.5) { // Create a dense plasma ball around the cursor
+      const idleJitterX = (Math.random() - 0.5) * 30;
+      const idleJitterY = (Math.random() - 0.5) * 30;
+      trail.push({ 
+        x: currentMouse.x + idleJitterX, 
+        y: currentMouse.y + idleJitterY, 
+        age: 0 
+      });
+    }
+  }
+
+  // Age all points in the trail
+  for (let i = 0; i < trail.length; i++) {
+    trail[i].age += 0.8; 
+  }
+  
+  // Remove dead points
+  while (trail.length > 0 && trail[0].age > 30) {
+    trail.shift();
+  }
+
+  // Draw the lightning line if we have a trail
+  if (trail.length > 1) {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'miter';
+
+    // 1. Draw the main thick cyan glow
+    ctx.beginPath();
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    // 2. Draw a secondary wild crackling strand
+    ctx.beginPath();
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i];
+      const wildX = (Math.random() - 0.5) * 25;
+      const wildY = (Math.random() - 0.5) * 25;
+      if (i === 0) ctx.moveTo(p.x + wildX, p.y + wildY);
+      else ctx.lineTo(p.x + wildX, p.y + wildY);
+    }
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.6)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // 3. Draw a tertiary smaller crackling strand
+    ctx.beginPath();
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i];
+      const wildX = (Math.random() - 0.5) * 15;
+      const wildY = (Math.random() - 0.5) * 15;
+      if (i === 0) ctx.moveTo(p.x + wildX, p.y + wildY);
+      else ctx.lineTo(p.x + wildX, p.y + wildY);
+    }
+    ctx.strokeStyle = 'rgba(200, 255, 255, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 4. Draw the stable white core
+    ctx.beginPath();
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Loop infinitely so stationary electricity works
+  animationFrameId = requestAnimationFrame(drawLightning);
+};
+
 onMounted(() => {
   const emberArray = [];
-  // Generate 80 random realistic embers
-  for (let i = 0; i < 80; i++) {
+  // Reduced embers from 80 to 40 to significantly improve GPU performance
+  for (let i = 0; i < 40; i++) {
     emberArray.push({
       id: i,
       left: Math.random() * 100,
-      duration: Math.random() * 4 + 3, // 3 to 7 seconds
+      duration: Math.random() * 4 + 4, // 4 to 8 seconds
       delay: Math.random() * 5, // 0 to 5 seconds delay
-      size: Math.random() * 6 + 2, // 2px to 8px
-      opacity: Math.random() * 0.6 + 0.4, // 0.4 to 1
-      blur: Math.random() * 2 // 0 to 2px blur for depth
+      size: Math.random() * 4 + 2, // 2px to 6px
+      opacity: Math.random() * 0.5 + 0.3
     });
   }
   embers.value = emberArray;
+
+  // Setup Lightning Canvas
+  if (lightningCanvas.value) {
+    ctx = lightningCanvas.value.getContext('2d');
+    resizeCanvas();
+    // Passive listeners improve scroll/mouse performance
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    drawLightning();
+  }
+});
+
+onUnmounted(() => {
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
+  window.removeEventListener('resize', resizeCanvas);
+  window.removeEventListener('mousemove', onMouseMove);
 });
 </script>
 
@@ -157,12 +292,10 @@ onMounted(() => {
   min-height: 100vh;
   width: 100%;
   overflow-x: hidden;
-  padding-bottom: 32px;
-  /* Dark backdrop to make fire visible */
+  padding-bottom: 80px; /* Increased padding to prevent hover scale from triggering scrollbar */
   background: radial-gradient(circle at bottom, #2d1000 0%, #0a0a0a 100%);
 }
 
-/* Base environment overlay for realistic lighting */
 .fire-environment {
   position: absolute;
   bottom: 0;
@@ -170,7 +303,7 @@ onMounted(() => {
   width: 100%;
   height: 40vh;
   background: linear-gradient(to top, rgba(255, 60, 0, 0.15) 0%, transparent 100%);
-  animation: pulse-light 3s ease-in-out infinite alternate;
+  animation: pulse-light 4s ease-in-out infinite alternate;
   pointer-events: none;
   z-index: 1;
 }
@@ -180,7 +313,16 @@ onMounted(() => {
   100% { opacity: 1; }
 }
 
-/* Particles Container */
+.lightning-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
 .embers-container {
   position: absolute;
   top: 0;
@@ -189,6 +331,7 @@ onMounted(() => {
   height: 100%;
   z-index: 2;
   pointer-events: none;
+  overflow: hidden; /* Crucial: Prevents embers at bottom: -20px from causing scrollbars */
 }
 
 .ember {
@@ -196,9 +339,8 @@ onMounted(() => {
   bottom: -20px;
   background: radial-gradient(circle, #fffbd6 0%, #ffb74d 40%, #e65100 80%, transparent 100%);
   border-radius: 50%;
-  box-shadow: 0 0 10px #ff9800, 0 0 20px #e65100;
   animation-name: floatUpEmber;
-  animation-timing-function: ease-in;
+  animation-timing-function: linear; /* Smoother performance than ease */
   animation-iteration-count: infinite;
 }
 
@@ -242,6 +384,7 @@ onMounted(() => {
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 120, 0, 0.2);
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform-origin: center bottom; /* Ensures scaling up doesn't push the bottom edge down */
 }
 
 .card-hover-wrapper:hover .premium-glass-card {
@@ -271,33 +414,9 @@ onMounted(() => {
   box-shadow: 0 0 15px currentColor !important;
 }
 
-/* Hyper-realistic Fire Text Animation */
-.realistic-fire-text {
-  color: #fff;
-  text-shadow: 
-    0 -2px 4px #fff,
-    0 -6px 10px #ff0,
-    0 -14px 20px #ff8000,
-    0 -24px 40px #f00;
-  animation: intenseFlicker 0.1s infinite alternate;
-}
-
-@keyframes intenseFlicker {
-  0% {
-    text-shadow: 
-      0 -2px 4px #fff,
-      0 -6px 10px #ff0,
-      0 -14px 20px #ff8000,
-      0 -24px 40px #f00,
-      0 -30px 60px #f00;
-  }
-  100% {
-    text-shadow: 
-      0 -1px 3px #fff,
-      0 -4px 8px #ff0,
-      0 -10px 18px #ff8000,
-      0 -20px 35px #f00,
-      0 -25px 50px #800000;
-  }
+.dashboard-title {
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+  letter-spacing: 2px;
 }
 </style>
