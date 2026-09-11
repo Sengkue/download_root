@@ -31,6 +31,18 @@
           rounded="lg"
           class="nav-item mb-1"
         ></v-list-item>
+
+        <!-- About Me Menu -->
+        <v-list-item
+          to="/about"
+          prepend-icon="mdi-account"
+          title="About Me"
+          value="about"
+          color="blue-accent-2"
+          rounded="lg"
+          class="nav-item mb-1"
+        ></v-list-item>
+
         <v-list-item
           to="/downloader/image"
           prepend-icon="mdi-cloud-download"
@@ -58,6 +70,18 @@
           rounded="lg"
           class="nav-item mb-1"
         ></v-list-item>
+
+        <!-- Learning Menu -->
+        <v-list-item
+          to="/learning"
+          prepend-icon="mdi-school"
+          title="Learning"
+          value="learning"
+          color="indigo"
+          rounded="lg"
+          class="nav-item mb-1"
+        ></v-list-item>
+
         <!-- Editor Menu with Photo Mixer & Video Mixer -->
         <v-list-item
           to="/editor/photo-mixer"
@@ -94,6 +118,7 @@
       </v-list>
     </v-navigation-drawer>
 
+      <AiChatBox />
     <!-- Top Navigation Bar -->
     <v-app-bar
       v-if="!isFullscreenMode"
@@ -105,7 +130,7 @@
       <!-- Hamburger menu to toggle sidebar -->
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
 
-      <v-app-bar-title class="font-weight-bold"> MeDownloader </v-app-bar-title>
+      <v-app-bar-title class="font-weight-bold"> SKV-TOOLS </v-app-bar-title>
     </v-app-bar>
 
     <!-- Main Content Area with global background -->

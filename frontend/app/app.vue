@@ -36,7 +36,7 @@ onMounted(() => {
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-    <AiChatBox />
+  
   </v-app>
 </template>
 

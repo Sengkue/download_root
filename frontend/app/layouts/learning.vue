@@ -1,5 +1,5 @@
 <template>
-  <v-layout class="learning-layout-root">
+  <v-app class="learning-layout-root">
     <!-- Learning Sidebar Navigation -->
     <v-navigation-drawer
       v-model="drawer"
@@ -7,6 +7,7 @@
       elevation="0"
       width="280"
       permanent
+      theme="dark"
     >
       <v-list-item
         prepend-icon="mdi-school"
@@ -90,7 +91,7 @@
         <slot />
       </div>
     </v-main>
-  </v-layout>
+  </v-app>
 </template>
 
 <script setup>
