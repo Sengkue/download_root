@@ -144,6 +144,13 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useDisplay } from "vuetify";
+import { useHead } from "#imports";
+
+useHead({
+  bodyAttrs: {
+    class: 'default-layout-active'
+  }
+});
 
 // Vuetify useDisplay helps us know if it's a mobile screen
 const { mobile } = useDisplay();
@@ -163,8 +170,10 @@ onMounted(() => {
 </script>
 
 <style>
-/* Strictly prevent body scrolling and force internal scrolling */
-html, body, #__nuxt {
+/* Strictly prevent body scrolling and force internal scrolling only for default layout */
+body.default-layout-active, 
+html:has(body.default-layout-active), 
+body.default-layout-active #__nuxt {
   margin: 0;
   padding: 0;
   height: 100%;

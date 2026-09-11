@@ -12,7 +12,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-app>
+  <div>
     <!-- Smooth Fade Out Transition -->
     <Transition name="fade">
       <div v-if="isAppLoading" class="global-css-loader">
@@ -37,7 +37,7 @@ onMounted(() => {
       <NuxtPage />
     </NuxtLayout>
   
-  </v-app>
+  </div>
 </template>
 
 <style>
