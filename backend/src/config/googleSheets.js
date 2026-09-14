@@ -66,6 +66,21 @@ export const connectGoogleSheets = async () => {
           // ignore if already set
         }
       }
+
+      // Setup LearningVideos Sheet
+      let learningVideosSheet = doc.sheetsByTitle['LearningVideos'];
+      if (!learningVideosSheet) {
+        learningVideosSheet = await doc.addSheet({ title: 'LearningVideos', headerValues: ['ID', 'Category', 'Title', 'Flag', 'Description', 'VideoURL', 'FlipbookURL'] });
+        await learningVideosSheet.addRows([
+          { ID: 'h1', Category: 'hmong', Title: 'Hmong Interactive Book', Flag: '📖', Description: 'Read and learn through our interactive Hmong flipbook experience.', VideoURL: '', FlipbookURL: 'https://online.fliphtml5.com/dbsyx/qcqw/' },
+          { ID: 'h2', Category: 'hmong-video', Title: 'Video Learning', Flag: '▶️', Description: 'Watch expert advice and pronunciation guides directly from YouTube.', VideoURL: 'https://www.youtube.com/embed/s8pboIhSURc', FlipbookURL: '' },
+          { ID: 'h3', Category: 'hmong', Title: 'Advanced Grammar', Flag: 'H', Description: 'Deep dive into sentence structures and complex modifiers.', VideoURL: '', FlipbookURL: '' },
+          { ID: 'l1', Category: 'lao', Title: 'Lao Consonants', Flag: '🇱🇦', Description: 'Master the Lao alphabet consonants and their classes.', VideoURL: '', FlipbookURL: '' },
+          { ID: 'l2', Category: 'lao', Title: 'Vowels & Tones', Flag: '🇱🇦', Description: 'Understand how vowels interact with consonants and tone marks.', VideoURL: '', FlipbookURL: '' },
+          { ID: 'e1', Category: 'english', Title: 'Grammar Essentials', Flag: '🇬🇧', Description: 'Build a strong foundation with English tenses and parts of speech.', VideoURL: '', FlipbookURL: '' }
+        ]);
+        console.log('✅ Created LearningVideos sheet with default courses.');
+      }
     } catch (sheetErr) {
       console.error('⚠️ Could not setup Typing Test sheets (might be permission issue):', sheetErr.message);
     }
@@ -219,6 +234,76 @@ export const deleteTypingLesson = async (id) => {
   
   const rows = await sheet.getRows();
   const row = rows.find(r => r.get('LessonID') === id);
+  if (row) {
+    await row.delete();
+    return true;
+  }
+  return false;
+};
+
+// --- Learning Videos (Video EPs) Functions ---
+
+export const getLearningVideos = async () => {
+  if (!isConnected) return [];
+  const sheet = doc.sheetsByTitle['LearningVideos'];
+  if (!sheet) return [];
+  const rows = await sheet.getRows();
+  return rows.map(row => ({
+    id: row.get('ID'),
+    category: row.get('Category'),
+    title: row.get('Title'),
+    flag: row.get('Flag'),
+    description: row.get('Description'),
+    videoUrl: row.get('VideoURL') || '',
+    flipbookUrl: row.get('FlipbookURL') || '',
+  }));
+};
+
+export const addLearningVideo = async (data) => {
+  if (!isConnected) return null;
+  const sheet = doc.sheetsByTitle['LearningVideos'];
+  if (!sheet) return null;
+  
+  const newId = data.id || `v_${Date.now()}`;
+  await sheet.addRow({ 
+    ID: newId, 
+    Category: data.category, 
+    Title: data.title, 
+    Flag: data.flag || '▶️', 
+    Description: data.description, 
+    VideoURL: data.videoUrl || '', 
+    FlipbookURL: data.flipbookUrl || '' 
+  });
+  return { ...data, id: newId };
+};
+
+export const updateLearningVideo = async (id, data) => {
+  if (!isConnected) return false;
+  const sheet = doc.sheetsByTitle['LearningVideos'];
+  if (!sheet) return false;
+  
+  const rows = await sheet.getRows();
+  const row = rows.find(r => r.get('ID') === id);
+  if (row) {
+    if (data.category !== undefined) row.set('Category', data.category);
+    if (data.title !== undefined) row.set('Title', data.title);
+    if (data.flag !== undefined) row.set('Flag', data.flag);
+    if (data.description !== undefined) row.set('Description', data.description);
+    if (data.videoUrl !== undefined) row.set('VideoURL', data.videoUrl);
+    if (data.flipbookUrl !== undefined) row.set('FlipbookURL', data.flipbookUrl);
+    await row.save();
+    return true;
+  }
+  return false;
+};
+
+export const deleteLearningVideo = async (id) => {
+  if (!isConnected) return false;
+  const sheet = doc.sheetsByTitle['LearningVideos'];
+  if (!sheet) return false;
+  
+  const rows = await sheet.getRows();
+  const row = rows.find(r => r.get('ID') === id);
   if (row) {
     await row.delete();
     return true;

@@ -10,6 +10,7 @@ import typingRoutes from './typing.routes.js';
 import editorRoutes from './editor.routes.js';
 import videoMixerRoutes from './video-mixer.routes.js';
 import typingHistoryRoutes from './typing-history.routes.js';
+import learningVideosRoutes from './learningVideos.routes.js';
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.use('/lyrics', lyricsRoutes);
 router.use('/editor', editorRoutes);
 router.use('/video-mixer', videoMixerRoutes);
 router.use('/typing-history', typingHistoryRoutes);
+router.use('/learning-videos', learningVideosRoutes);
 
 // These routers define top-level /api endpoints (e.g. /api/download, /api/info, /api/typing-lessons)
 router.use('/', downloadRoutes);
