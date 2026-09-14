@@ -6,8 +6,8 @@ import { upload } from '../middlewares/upload.middleware.js';
 const router = express.Router();
 
 router.post('/', upload.fields([
-  { name: 'video', maxCount: 50 },
-  { name: 'audio', maxCount: 20 }
+  { name: 'video', maxCount: 500 },
+  { name: 'audio', maxCount: 100 }
 ]), mixVideo);
 
 router.post('/cancel', cancelJob);
