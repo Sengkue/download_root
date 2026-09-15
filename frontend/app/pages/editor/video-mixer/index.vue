@@ -484,6 +484,332 @@
         </v-row>
       </div>
 
+      <!-- YouTube Overlay Settings Panel -->
+      <div v-if="!videoUrl" class="settings-panel glass-card mt-6 overlay-panel">
+        <div class="d-flex align-center mb-8">
+          <div
+            class="icon-box rounded-xl pa-3 mr-4 d-flex align-center justify-center"
+            style="background: linear-gradient(135deg, rgba(255,107,107,0.2), rgba(132,94,194,0.2))"
+          >
+            <v-icon icon="mdi-youtube" color="red" size="28"></v-icon>
+          </div>
+          <div>
+            <h3 class="text-h5 font-weight-bold text-white mb-0">
+              YouTube Overlay Settings
+            </h3>
+            <p class="text-caption text-grey-lighten-1 mb-0">
+              Add visual overlays for Transformative Content
+            </p>
+          </div>
+        </div>
+
+        <!-- ============ 1. POMODORO TIMER ============ -->
+        <div class="overlay-section">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="d-flex align-center">
+              <v-icon icon="mdi-timer-outline" color="purple-lighten-2" class="mr-3" size="24"></v-icon>
+              <div>
+                <p class="font-weight-bold mb-0 text-white">Pomodoro Timer</p>
+                <p class="text-caption text-grey-lighten-1 mb-0">Countdown timer with progress bar</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="overlayTimer.enabled"
+              color="purple-lighten-2"
+              inset
+              hide-details
+              density="compact"
+            ></v-switch>
+          </div>
+
+          <v-expand-transition>
+            <div v-if="overlayTimer.enabled">
+              <v-row dense>
+                <v-col cols="12" md="4">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Timer Duration</p>
+                  <div class="d-flex" style="gap: 8px">
+                    <v-btn
+                      v-for="preset in [25, 50, 90]"
+                      :key="preset"
+                      :color="overlayTimer.minutes === preset ? 'purple-lighten-2' : 'grey-darken-3'"
+                      :variant="overlayTimer.minutes === preset ? 'flat' : 'outlined'"
+                      size="small"
+                      @click="overlayTimer.minutes = preset"
+                      class="timer-preset-btn"
+                    >
+                      {{ preset }}m
+                    </v-btn>
+                    <v-text-field
+                      v-model.number="overlayTimer.minutes"
+                      type="number"
+                      min="1"
+                      max="180"
+                      density="compact"
+                      hide-details
+                      variant="outlined"
+                      bg-color="rgba(255,255,255,0.05)"
+                      color="purple-lighten-2"
+                      class="rounded-lg"
+                      style="max-width: 80px"
+                      suffix="min"
+                    ></v-text-field>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Position</p>
+                  <v-select
+                    v-model="overlayTimer.position"
+                    :items="positionOptions"
+                    item-title="title"
+                    item-value="value"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="purple-lighten-2"
+                    class="rounded-lg"
+                    theme="dark"
+                    :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="4" class="d-flex flex-column justify-center" style="gap: 4px">
+                  <v-switch
+                    v-model="overlayTimer.showProgress"
+                    label="Show Progress Bar"
+                    color="purple-lighten-2"
+                    inset
+                    hide-details
+                    density="compact"
+                    class="text-white"
+                  ></v-switch>
+                  <v-switch
+                    v-model="overlayTimer.withBreak"
+                    label="5min Break Between Cycles"
+                    color="green-lighten-2"
+                    inset
+                    hide-details
+                    density="compact"
+                    class="text-white"
+                  ></v-switch>
+                </v-col>
+              </v-row>
+            </div>
+          </v-expand-transition>
+        </div>
+
+        <v-divider class="my-5" color="rgba(255,255,255,0.08)"></v-divider>
+
+        <!-- ============ 2. WATERMARK / LOGO ============ -->
+        <div class="overlay-section">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="d-flex align-center">
+              <v-icon icon="mdi-watermark" color="amber-lighten-2" class="mr-3" size="24"></v-icon>
+              <div>
+                <p class="font-weight-bold mb-0 text-white">Watermark / Logo</p>
+                <p class="text-caption text-grey-lighten-1 mb-0">Brand your content with a logo overlay</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="overlayLogo.enabled"
+              color="amber-lighten-2"
+              inset
+              hide-details
+              density="compact"
+            ></v-switch>
+          </div>
+
+          <v-expand-transition>
+            <div v-if="overlayLogo.enabled">
+              <v-row dense>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Logo File (PNG)</p>
+                  <div
+                    class="logo-upload-zone"
+                    :class="{ 'has-logo': overlayLogo.file }"
+                    @click="$refs.logoInput.click()"
+                  >
+                    <input
+                      type="file"
+                      ref="logoInput"
+                      accept="image/png,image/webp,image/svg+xml"
+                      class="d-none"
+                      @change="onSelectLogo"
+                      @click.stop
+                    />
+                    <div v-if="!overlayLogo.file" class="text-center">
+                      <v-icon icon="mdi-image-plus" size="28" color="amber-lighten-2" class="mb-1"></v-icon>
+                      <p class="text-caption text-grey-lighten-1 mb-0">Click to upload</p>
+                    </div>
+                    <div v-else class="d-flex align-center" style="gap: 8px">
+                      <v-icon icon="mdi-check-circle" color="success" size="20"></v-icon>
+                      <span class="text-caption text-white text-truncate" style="max-width: 100px">{{ overlayLogo.file.name }}</span>
+                      <v-btn icon="mdi-close" size="x-small" color="error" variant="text" @click.stop="clearLogo"></v-btn>
+                    </div>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Position</p>
+                  <v-select
+                    v-model="overlayLogo.position"
+                    :items="logoPositionOptions"
+                    item-title="title"
+                    item-value="value"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="amber-lighten-2"
+                    class="rounded-lg"
+                    theme="dark"
+                    :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Opacity: {{ overlayLogo.opacity }}</p>
+                  <v-slider
+                    v-model="overlayLogo.opacity"
+                    color="amber-lighten-2"
+                    track-color="rgba(255,255,255,0.1)"
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    hide-details
+                    thumb-size="16"
+                    track-size="4"
+                  ></v-slider>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Size: {{ overlayLogo.size }}px</p>
+                  <v-slider
+                    v-model="overlayLogo.size"
+                    color="amber-lighten-2"
+                    track-color="rgba(255,255,255,0.1)"
+                    min="50"
+                    max="300"
+                    step="10"
+                    hide-details
+                    thumb-size="16"
+                    track-size="4"
+                  ></v-slider>
+                </v-col>
+              </v-row>
+            </div>
+          </v-expand-transition>
+        </div>
+
+        <v-divider class="my-5" color="rgba(255,255,255,0.08)"></v-divider>
+
+        <!-- ============ 3. DYNAMIC QUOTES ============ -->
+        <div class="overlay-section">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="d-flex align-center">
+              <v-icon icon="mdi-format-quote-close" color="cyan-lighten-2" class="mr-3" size="24"></v-icon>
+              <div>
+                <p class="font-weight-bold mb-0 text-white">Motivational Quotes</p>
+                <p class="text-caption text-grey-lighten-1 mb-0">Auto-display timed motivational text</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="overlayQuotes.enabled"
+              color="cyan-lighten-2"
+              inset
+              hide-details
+              density="compact"
+            ></v-switch>
+          </div>
+
+          <v-expand-transition>
+            <div v-if="overlayQuotes.enabled">
+              <v-row dense>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Show Every (min)</p>
+                  <v-text-field
+                    v-model.number="overlayQuotes.interval"
+                    type="number"
+                    min="1"
+                    max="60"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Display Duration (sec)</p>
+                  <v-text-field
+                    v-model.number="overlayQuotes.duration"
+                    type="number"
+                    min="5"
+                    max="60"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Position</p>
+                  <v-select
+                    v-model="overlayQuotes.position"
+                    :items="quotePositionOptions"
+                    item-title="title"
+                    item-value="value"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                    theme="dark"
+                    :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="3" class="d-flex align-center">
+                  <v-chip
+                    v-if="overlayQuotes.customQuotes.trim().length === 0"
+                    color="cyan-lighten-2"
+                    variant="outlined"
+                    size="small"
+                    prepend-icon="mdi-auto-fix"
+                  >
+                    Using 20 default quotes
+                  </v-chip>
+                  <v-chip
+                    v-else
+                    color="cyan-lighten-2"
+                    variant="flat"
+                    size="small"
+                    prepend-icon="mdi-text-box-check"
+                  >
+                    {{ overlayQuotes.customQuotes.split('\n').filter(l => l.trim()).length }} custom quotes
+                  </v-chip>
+                </v-col>
+              </v-row>
+              <v-row dense class="mt-2">
+                <v-col cols="12">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Custom Quotes (one per line, leave empty for defaults)</p>
+                  <v-textarea
+                    v-model="overlayQuotes.customQuotes"
+                    rows="3"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                    placeholder="Stay focused...&#10;Deep work in progress...&#10;You are doing amazing!"
+                  ></v-textarea>
+                </v-col>
+              </v-row>
+            </div>
+          </v-expand-transition>
+        </div>
+      </div>
+
       <!-- Result View -->
       <div v-if="videoUrl" class="result-view glass-card">
         <h3 class="mb-4 d-flex align-center gap-2">
@@ -527,7 +853,7 @@
           style="gap: 16px"
         >
           <v-btn
-            size="x-large"
+            size="small"
             color="primary"
             :disabled="!canGenerate"
             @click="generateVideo"
@@ -569,6 +895,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Success/Error Notification Snackbar -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="snackbar.timeout"
+      location="top"
+      rounded="lg"
+      elevation="12"
+      class="notification-snackbar"
+    >
+      <div class="d-flex align-center" style="gap: 12px">
+        <v-icon :icon="snackbar.icon" size="28"></v-icon>
+        <div>
+          <p class="font-weight-bold mb-0" style="font-size: 1rem">{{ snackbar.title }}</p>
+          <p class="text-caption mb-0" style="opacity: 0.9">{{ snackbar.message }}</p>
+        </div>
+      </div>
+      <template v-slot:actions>
+        <v-btn variant="text" @click="snackbar.show = false" icon="mdi-close" size="small"></v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
@@ -583,6 +931,15 @@ definePageMeta({
 const videoInput = ref(null);
 const audioInput = ref(null);
 
+const snackbar = ref({
+  show: false,
+  color: 'success',
+  icon: 'mdi-check-circle',
+  title: '',
+  message: '',
+  timeout: 6000,
+});
+
 const isDraggingVideo = ref(false);
 const isDraggingAudio = ref(false);
 
@@ -596,6 +953,64 @@ const transitionDuration = ref(1.0);
 const targetDurationValue = ref(0);
 const targetDurationUnit = ref("Hours");
 const keepOriginalAudio = ref(false);
+
+// ====== Overlay Settings ======
+const logoInput = ref(null);
+
+const overlayTimer = ref({
+  enabled: false,
+  minutes: 25,
+  position: 'top-right',
+  showProgress: true,
+  withBreak: false,
+});
+
+const overlayLogo = ref({
+  enabled: false,
+  file: null,
+  position: 'bottom-right',
+  opacity: 0.7,
+  size: 120,
+});
+
+const overlayQuotes = ref({
+  enabled: false,
+  interval: 10,
+  duration: 15,
+  position: 'bottom',
+  customQuotes: '',
+});
+
+const positionOptions = [
+  { title: '↗ Top Right', value: 'top-right' },
+  { title: '↖ Top Left', value: 'top-left' },
+  { title: '⬆ Top Center', value: 'top-center' },
+  { title: '↘ Bottom Right', value: 'bottom-right' },
+  { title: '↙ Bottom Left', value: 'bottom-left' },
+];
+
+const logoPositionOptions = [
+  { title: '↘ Bottom Right', value: 'bottom-right' },
+  { title: '↙ Bottom Left', value: 'bottom-left' },
+  { title: '↗ Top Right', value: 'top-right' },
+  { title: '↖ Top Left', value: 'top-left' },
+];
+
+const quotePositionOptions = [
+  { title: '⬇ Bottom', value: 'bottom' },
+  { title: '⬆ Top', value: 'top' },
+  { title: '⬌ Center', value: 'center' },
+];
+
+const onSelectLogo = (e) => {
+  const file = e.target.files?.[0];
+  if (file) overlayLogo.value.file = file;
+};
+
+const clearLogo = () => {
+  overlayLogo.value.file = null;
+  if (logoInput.value) logoInput.value.value = '';
+};
 const outputResolution = ref("1280:720");
 const resolutionOptions = [
   { title: "YouTube / TV (16:9 HD)", value: "1280:720", icon: "mdi-monitor" },
@@ -739,6 +1154,11 @@ const resetMixer = () => {
   currentStatus.value = "";
   if (videoInput.value) videoInput.value.value = "";
   if (audioInput.value) audioInput.value.value = "";
+  // Reset overlays
+  overlayTimer.value = { enabled: false, minutes: 25, position: 'top-right', showProgress: true, withBreak: false };
+  overlayLogo.value = { enabled: false, file: null, position: 'bottom-right', opacity: 0.7, size: 120 };
+  overlayQuotes.value = { enabled: false, interval: 10, duration: 15, position: 'bottom', customQuotes: '' };
+  if (logoInput.value) logoInput.value.value = '';
 };
 
 const clearVideos = () => {
@@ -795,6 +1215,36 @@ const generateVideo = async () => {
   }
   formData.append("targetDuration", tDurationSeconds);
 
+  // Overlay: Pomodoro Timer
+  formData.append("overlayTimerEnabled", overlayTimer.value.enabled);
+  if (overlayTimer.value.enabled) {
+    formData.append("overlayTimerMinutes", overlayTimer.value.minutes);
+    formData.append("overlayTimerPosition", overlayTimer.value.position);
+    formData.append("overlayTimerShowProgress", overlayTimer.value.showProgress);
+    formData.append("overlayTimerWithBreak", overlayTimer.value.withBreak);
+  }
+
+  // Overlay: Logo/Watermark
+  formData.append("overlayLogoEnabled", overlayLogo.value.enabled);
+  if (overlayLogo.value.enabled && overlayLogo.value.file) {
+    formData.append("logo", overlayLogo.value.file);
+    formData.append("overlayLogoPosition", overlayLogo.value.position);
+    formData.append("overlayLogoOpacity", overlayLogo.value.opacity);
+    formData.append("overlayLogoSize", overlayLogo.value.size);
+  }
+
+  // Overlay: Dynamic Quotes
+  formData.append("overlayQuotesEnabled", overlayQuotes.value.enabled);
+  if (overlayQuotes.value.enabled) {
+    formData.append("overlayQuotesInterval", overlayQuotes.value.interval);
+    formData.append("overlayQuotesDuration", overlayQuotes.value.duration);
+    formData.append("overlayQuotesPosition", overlayQuotes.value.position);
+    if (overlayQuotes.value.customQuotes.trim()) {
+      const lines = overlayQuotes.value.customQuotes.split('\n').filter(l => l.trim());
+      formData.append("overlayQuotesCustom", JSON.stringify(lines));
+    }
+  }
+
   videoFiles.value.forEach((file) => {
     formData.append("video", file);
   });
@@ -812,11 +1262,35 @@ const generateVideo = async () => {
     setTimeout(() => {
       videoUrl.value = URL.createObjectURL(blob);
       isGenerating.value = false;
+      // Show success notification
+      snackbar.value = {
+        show: true,
+        color: '#2E7D32',
+        icon: 'mdi-party-popper',
+        title: '🎉 Mixing Complete!',
+        message: 'Your video is ready to download.',
+        timeout: 8000,
+      };
+      // Play notification sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRl9vT19teleAFgABABAAEABAABAAEABAABAAIACAAIAAgACA');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch (e) {}
     }, 500);
   } catch (error) {
     console.error("Generation failed:", error);
     currentStatus.value = "Failed: " + (error.data?.error || error.message);
     isGenerating.value = false;
+    // Show error notification
+    snackbar.value = {
+      show: true,
+      color: '#C62828',
+      icon: 'mdi-alert-circle',
+      title: '❌ Mixing Failed',
+      message: error.data?.error || error.message || 'An unexpected error occurred.',
+      timeout: 10000,
+    };
   } finally {
     if (eventSource) {
       eventSource.close();
@@ -1399,5 +1873,55 @@ onUnmounted(() => {
   100% {
     clip-path: polygon(50% 50%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%, 50% 0%);
   }
+}
+
+/* ======== Overlay Panel Styles ======== */
+.overlay-panel {
+  padding: 32px;
+  border: 1px solid rgba(132, 94, 194, 0.15);
+  background: rgba(20, 20, 30, 0.8);
+}
+
+.overlay-section {
+  padding: 8px 0;
+}
+
+.timer-preset-btn {
+  min-width: 48px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  border-radius: 10px !important;
+}
+
+.logo-upload-zone {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.logo-upload-zone:hover {
+  border-color: #FFD54F;
+  background: rgba(255, 213, 79, 0.05);
+}
+
+.logo-upload-zone.has-logo {
+  border-style: solid;
+  border-color: rgba(76, 175, 80, 0.4);
+  background: rgba(76, 175, 80, 0.05);
+}
+
+.overlay-panel :deep(input),
+.overlay-panel :deep(textarea),
+.overlay-panel :deep(.v-field__input),
+.overlay-panel :deep(.v-select__selection-text),
+.overlay-panel :deep(.v-field input) {
+  color: white !important;
 }
 </style>
