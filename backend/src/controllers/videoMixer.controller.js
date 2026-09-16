@@ -38,9 +38,10 @@ function escapeDrawtext(text) {
   return text
     .replace(/\\/g, '\\\\')
     .replace(/:/g, '\\:')
-    .replace(/'/g, "'\\'\\''")
+    .replace(/'/g, '’')
     .replace(/;/g, '\\;')
-    .replace(/%/g, '%%');
+    .replace(/%/g, '%%')
+    .replace(/,/g, '\\,');
 }
 
 /**
@@ -49,7 +50,7 @@ function escapeDrawtext(text) {
  */
 function buildOverlayFilters(params, totalDuration, extraInputStartIndex) {
   const {
-    timerEnabled, timerMinutes, timerPosition, timerShowProgress, timerWithBreak,
+    timerEnabled, timerMinutes, timerBreakMinutes, timerPosition, timerShowProgress, timerWithBreak,
     logoEnabled, logoPath, logoPosition, logoOpacity, logoSize,
     quotesEnabled, quotesInterval, quotesDuration, quotesPosition, customQuotes
   } = params;
@@ -98,8 +99,9 @@ function buildOverlayFilters(params, totalDuration, extraInputStartIndex) {
   if (timerEnabled) {
     const isLast = enabledOverlays[enabledOverlays.length - 1] === 'timer';
     const minutes = parseInt(timerMinutes) || 25;
+    const bMinutes = parseInt(timerBreakMinutes) || 5;
     const cycleSec = minutes * 60;
-    const breakSec = timerWithBreak ? 300 : 0;
+    const breakSec = timerWithBreak ? (bMinutes * 60) : 0;
     const totalCycleSec = cycleSec + breakSec;
 
     let timerX, timerY;
@@ -210,7 +212,7 @@ function buildOverlayFilters(params, totalDuration, extraInputStartIndex) {
       const alphaExpr = `if(lt(t\\,${startTime + fadeTime})\\,(t-${startTime})/${fadeTime}\\,if(gt(t\\,${endTime - fadeTime})\\,(${endTime}-t)/${fadeTime}\\,1))`;
 
       filters += `[${currentNode}]drawtext=text='${escapedQuote}':`;
-      filters += `fontsize=32:fontcolor=white@'${alphaExpr}':`;
+      filters += `fontsize=32:fontcolor=white:alpha='${alphaExpr}':`;
       filters += `x=(w-tw)/2:y=${quoteY}:`;
       filters += `box=1:boxcolor=black@0.45:boxborderw=12:`;
       filters += `fontfile='C\\:/Windows/Fonts/consola.ttf':`;
@@ -277,7 +279,7 @@ export const mixVideo = async (req, res) => {
 
     const { jobId, videoSpeed = 1.0, transitionDuration = 1.0, transitionTypes, keepOriginalAudio, targetDuration, resolution = '1280:720',
       // Overlay parameters
-      overlayTimerEnabled, overlayTimerMinutes, overlayTimerPosition, overlayTimerShowProgress, overlayTimerWithBreak,
+      overlayTimerEnabled, overlayTimerMinutes, overlayTimerBreakMinutes, overlayTimerPosition, overlayTimerShowProgress, overlayTimerWithBreak,
       overlayLogoEnabled, overlayLogoPosition, overlayLogoOpacity, overlayLogoSize,
       overlayQuotesEnabled, overlayQuotesInterval, overlayQuotesDuration, overlayQuotesPosition, overlayQuotesCustom
     } = req.body;
@@ -294,6 +296,7 @@ export const mixVideo = async (req, res) => {
     const overlayParams = {
       timerEnabled: overlayTimerEnabled === 'true',
       timerMinutes: overlayTimerMinutes,
+      timerBreakMinutes: overlayTimerBreakMinutes,
       timerPosition: overlayTimerPosition || 'top-right',
       timerShowProgress: overlayTimerShowProgress === 'true',
       timerWithBreak: overlayTimerWithBreak === 'true',
@@ -586,10 +589,16 @@ export const mixVideo = async (req, res) => {
         let pass2Filter = `[0:v]null[vbase]; ${overlay.filters}`;
         if (audioPath) {
           pass2Filter += ` [1:a]afade=t=out:st=${fadeOutStart}:d=${fadeOutDuration}[aout]`;
-          pass2Args.push('-filter_complex', pass2Filter.trim().replace(/;$/, ''));
+        }
+        
+        const pass2FilterScript = path.join(tmpDir, `filter2-${tmpId}.txt`);
+        fs.writeFileSync(pass2FilterScript, pass2Filter.trim().replace(/;$/, ''));
+        tmpFiles.push(pass2FilterScript);
+        pass2Args.push('-filter_complex_script', pass2FilterScript);
+        
+        if (audioPath) {
           pass2Args.push('-map', '[vout]', '-map', '[aout]');
         } else {
-          pass2Args.push('-filter_complex', pass2Filter.trim().replace(/;$/, ''));
           pass2Args.push('-map', '[vout]');
         }
         // Must encode video since we're applying filters

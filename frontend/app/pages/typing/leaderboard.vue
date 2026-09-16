@@ -232,8 +232,8 @@ const fetchLeaderboard = async () => {
   loading.value = true;
   try {
     const url = selectedLessonFilter.value && selectedLessonFilter.value !== 'All'
-      ? `http://localhost:3001/api/typing-leaderboard?lessonTitle=${encodeURIComponent(selectedLessonFilter.value)}`
-      : 'http://localhost:3001/api/typing-leaderboard';
+      ? `http://localhost:3005/api/typing-leaderboard?lessonTitle=${encodeURIComponent(selectedLessonFilter.value)}`
+      : 'http://localhost:3005/api/typing-leaderboard';
     
     const res = await fetch(url);
     const data = await res.json();
@@ -248,7 +248,7 @@ const fetchLeaderboard = async () => {
 
 const fetchLessons = async () => {
   try {
-    const res = await fetch('http://localhost:3001/api/typing-lessons');
+    const res = await fetch('http://localhost:3005/api/typing-lessons');
     const data = await res.json();
     lessons.value = Array.isArray(data) ? data : [];
   } catch (err) {

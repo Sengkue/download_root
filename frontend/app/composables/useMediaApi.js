@@ -1,6 +1,6 @@
 export const useMediaApi = () => {
   // Base URL for all API requests
-  const apiBaseUrl = 'http://localhost:3001/api';
+  const apiBaseUrl = 'http://localhost:3005/api';
 
   /**
    * Creates a Server-Sent Events (SSE) connection for tracking generation progress

@@ -79,7 +79,7 @@
         <!-- Audio Drop Zone -->
         <div
           class="drop-zone glass-card"
-          :class="{ 'drag-over': isDraggingAudio, 'has-file': audioFile }"
+          :class="{ 'drag-over': isDraggingAudio, 'has-file': audioFiles.length > 0 }"
           @dragover.prevent="isDraggingAudio = true"
           @dragleave.prevent="isDraggingAudio = false"
           @drop.prevent="onDropAudio"
@@ -527,13 +527,14 @@
               <v-row dense>
                 <v-col cols="12" md="4">
                   <p class="text-caption text-grey-lighten-1 mb-1">Timer Duration</p>
-                  <div class="d-flex" style="gap: 8px">
+                  <div class="d-flex align-center" style="gap: 8px">
                     <v-btn
                       v-for="preset in [25, 50, 90]"
                       :key="preset"
                       :color="overlayTimer.minutes === preset ? 'purple-lighten-2' : 'grey-darken-3'"
                       :variant="overlayTimer.minutes === preset ? 'flat' : 'outlined'"
                       size="small"
+                      height="40"
                       @click="overlayTimer.minutes = preset"
                       class="timer-preset-btn"
                     >
@@ -550,7 +551,7 @@
                       bg-color="rgba(255,255,255,0.05)"
                       color="purple-lighten-2"
                       class="rounded-lg"
-                      style="max-width: 80px"
+                      style="max-width: 110px"
                       suffix="min"
                     ></v-text-field>
                   </div>
@@ -582,15 +583,32 @@
                     density="compact"
                     class="text-white"
                   ></v-switch>
-                  <v-switch
-                    v-model="overlayTimer.withBreak"
-                    label="5min Break Between Cycles"
-                    color="green-lighten-2"
-                    inset
-                    hide-details
-                    density="compact"
-                    class="text-white"
-                  ></v-switch>
+                  <div class="d-flex align-center gap-4 mt-2">
+                    <v-switch
+                      v-model="overlayTimer.withBreak"
+                      label="Add Short Break"
+                      color="green-lighten-2"
+                      inset
+                      hide-details
+                      density="compact"
+                      class="text-white"
+                    ></v-switch>
+                    
+                    <v-text-field
+                      v-if="overlayTimer.withBreak"
+                      v-model.number="overlayTimer.breakMinutes"
+                      type="number"
+                      min="1"
+                      max="60"
+                      density="compact"
+                      hide-details
+                      variant="outlined"
+                      bg-color="rgba(0,0,0,0.4)"
+                      class="timer-input"
+                      style="max-width: 90px;"
+                      suffix="m"
+                    ></v-text-field>
+                  </div>
                 </v-col>
               </v-row>
             </div>
@@ -845,33 +863,25 @@
         </div>
       </div>
 
-      <!-- Generate Section -->
+      <!-- Generate Action with Progress Bar -->
       <div v-if="!videoUrl" class="generate-section mt-8">
-        <div
-          v-if="!isGenerating"
-          class="d-flex justify-center"
-          style="gap: 16px"
-        >
+        <div v-if="!isGenerating" class="d-flex justify-center" style="gap: 16px;">
           <v-btn
-            size="small"
-            color="primary"
+            size="x-large"
+            class="generate-btn"
             :disabled="!canGenerate"
             @click="generateVideo"
-            class="generate-btn"
-            elevation="8"
           >
-            <template v-slot:prepend>
-              <v-icon icon="mdi-magic-staff"></v-icon>
-            </template>
-            MIX VIDEO & AUDIO INSTANTLY
+            <v-icon icon="mdi-magic-staff" class="mr-2" />
+            Generate Video
           </v-btn>
         </div>
 
-        <div v-if="isGenerating" class="progress-section mt-8">
-          <div class="d-flex justify-space-between align-center mb-2">
-            <span class="text-subtitle-1 text-white">{{ currentStatus }}</span>
+        <div v-else class="progress-section glass-card pa-6">
+          <div class="d-flex justify-space-between align-center mb-3">
+            <span class="font-weight-bold text-white text-body-1">{{ currentStatus }}</span>
             <div class="d-flex align-center" style="gap: 12px">
-              <span class="progress-percent">{{ currentProgress }}%</span>
+              <span class="progress-percent">{{ Math.round(currentProgress) }}%</span>
               <v-btn
                 size="small"
                 color="error"
@@ -883,13 +893,16 @@
             </div>
           </div>
           <v-progress-linear
-            v-model="currentProgress"
+            :model-value="currentProgress"
             color="primary"
-            height="12"
+            height="14"
             rounded
-            class="progress-bar-smooth bg-grey-darken-3"
+            striped
+            animated
+            class="progress-bar-smooth"
           ></v-progress-linear>
-          <p class="text-caption text-grey-lighten-1 mt-2 text-center">
+          <p class="text-caption text-grey-lighten-1 mt-3 mb-0 text-center">
+            <v-icon icon="mdi-information-outline" size="14" class="mr-1"></v-icon>
             Stream copying video data... (Ultra-fast processing)
           </p>
         </div>
@@ -960,6 +973,7 @@ const logoInput = ref(null);
 const overlayTimer = ref({
   enabled: false,
   minutes: 25,
+  breakMinutes: 5,
   position: 'top-right',
   showProgress: true,
   withBreak: false,
@@ -1219,6 +1233,7 @@ const generateVideo = async () => {
   formData.append("overlayTimerEnabled", overlayTimer.value.enabled);
   if (overlayTimer.value.enabled) {
     formData.append("overlayTimerMinutes", overlayTimer.value.minutes);
+    formData.append("overlayTimerBreakMinutes", overlayTimer.value.breakMinutes);
     formData.append("overlayTimerPosition", overlayTimer.value.position);
     formData.append("overlayTimerShowProgress", overlayTimer.value.showProgress);
     formData.append("overlayTimerWithBreak", overlayTimer.value.withBreak);
@@ -1398,6 +1413,16 @@ onUnmounted(() => {
   }
 }
 
+.settings-panel {
+  padding: 24px 32px;
+}
+
+.icon-box {
+  background: rgba(132, 94, 194, 0.1) !important;
+  border: 1px solid rgba(132, 94, 194, 0.3);
+  box-shadow: 0 0 20px rgba(132, 94, 194, 0.2);
+}
+
 .upload-zones {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1537,6 +1562,7 @@ onUnmounted(() => {
 .progress-section {
   max-width: 600px;
   margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
 
 .progress-percent {
@@ -1582,6 +1608,30 @@ onUnmounted(() => {
   letter-spacing: 0.5px !important;
 }
 
+.download-btn {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important;
+  color: white !important;
+}
+
+/* Beautiful Select Styles */
+.beautiful-select {
+  transition: all 0.3s ease;
+}
+.beautiful-select:hover {
+  box-shadow: 0 0 15px rgba(var(--v-theme-primary), 0.15);
+}
+.transition-list-item {
+  padding: 12px 16px !important;
+  transition: background 0.2s ease;
+}
+.transition-list-item:hover {
+  background: rgba(var(--v-theme-primary), 0.1) !important;
+}
+.selected-item {
+  background: rgba(var(--v-theme-primary), 0.15) !important;
+  border-left: 3px solid rgb(var(--v-theme-primary));
+}
+
 @keyframes pulse {
   0% {
     transform: scale(1);
@@ -1595,6 +1645,11 @@ onUnmounted(() => {
     transform: scale(1);
     opacity: 0.5;
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
@@ -1917,11 +1972,11 @@ onUnmounted(() => {
   background: rgba(76, 175, 80, 0.05);
 }
 
-.overlay-panel :deep(input),
-.overlay-panel :deep(textarea),
-.overlay-panel :deep(.v-field__input),
-.overlay-panel :deep(.v-select__selection-text),
-.overlay-panel :deep(.v-field input) {
+.editor-container :deep(input),
+.editor-container :deep(textarea),
+.editor-container :deep(.v-field__input),
+.editor-container :deep(.v-select__selection-text),
+.editor-container :deep(.v-field input) {
   color: white !important;
 }
 </style>

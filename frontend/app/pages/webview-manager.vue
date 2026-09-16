@@ -37,7 +37,7 @@ const filteredLinks = computed(() => {
 const fetchLinks = async () => {
   isLoading.value = true;
   try {
-    const res = await fetch('http://localhost:3001/api/webview-links');
+    const res = await fetch('http://localhost:3005/api/webview-links');
     if (res.ok) {
       links.value = await res.json();
     }
@@ -82,7 +82,7 @@ const submitForm = async () => {
 
   if (isEditing.value && editingId.value !== null) {
     try {
-      const res = await fetch(`http://localhost:3001/api/webview-links/${editingId.value}`, {
+      const res = await fetch(`http://localhost:3005/api/webview-links/${editingId.value}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle.value, url })
@@ -107,7 +107,7 @@ const submitForm = async () => {
     }
   } else {
     try {
-      const res = await fetch('http://localhost:3001/api/webview-links', {
+      const res = await fetch('http://localhost:3005/api/webview-links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle.value, url })
@@ -149,7 +149,7 @@ const cancelEdit = () => {
 
 const deleteLink = async (id: number) => {
   try {
-    const res = await fetch(`http://localhost:3001/api/webview-links/${id}`, {
+    const res = await fetch(`http://localhost:3005/api/webview-links/${id}`, {
       method: 'DELETE'
     });
     if (res.ok) {

@@ -1,0 +1,1 @@
+[0:v]drawtext=text='YouTube’s algorithm':fontsize=32:fontcolor=white:alpha='if(lt(t\,61)\,(t-59)/2\,1)':x=10:y=10:fontfile='C\:/Windows/Fonts/consola.ttf'[vout]

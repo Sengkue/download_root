@@ -27,7 +27,7 @@ const checkLink = async () => {
   videoInfo.value = null;
 
   try {
-    const response = await fetch('http://localhost:3001/api/info', {
+    const response = await fetch('http://localhost:3005/api/info', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: urlInput.value }),
@@ -62,7 +62,7 @@ const executeDownload = async () => {
   errorMessage.value = '';
 
   const jobId = Math.random().toString(36).substring(2, 15);
-  const eventSource = new EventSource(`http://localhost:3001/api/progress?jobId=${jobId}`);
+  const eventSource = new EventSource(`http://localhost:3005/api/progress?jobId=${jobId}`);
   
   eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -71,7 +71,7 @@ const executeDownload = async () => {
   };
 
   try {
-    const response = await fetch('http://localhost:3001/api/download', {
+    const response = await fetch('http://localhost:3005/api/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

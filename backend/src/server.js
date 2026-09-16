@@ -9,7 +9,7 @@ import fs from 'fs';
 import { uploadDir } from './middlewares/upload.middleware.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3005;
 
 // Middlewares
 app.use(cors());

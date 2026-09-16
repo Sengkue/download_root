@@ -162,7 +162,7 @@ const fetchHistory = async () => {
   }
 
   try {
-    const res = await fetch('http://localhost:3001/api/typing-history', {
+    const res = await fetch('http://localhost:3005/api/typing-history', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     

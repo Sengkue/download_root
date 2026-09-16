@@ -17,7 +17,7 @@ const progressStatus = ref('');
 const errorMessage = ref('');
 
 const executeDownload = async (targetUrl: string, explicitExt: string = '') => {
-  const response = await fetch('http://localhost:3001/api/download', {
+  const response = await fetch('http://localhost:3005/api/download', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

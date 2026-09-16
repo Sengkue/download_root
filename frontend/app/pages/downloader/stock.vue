@@ -53,7 +53,7 @@ const fetchResults = async (page: number = 1) => {
     const itemsPerPage = 30;
     
     // Request via the Node.js backend proxy to bypass browser security timeouts or ad-blockers
-    const url = `http://localhost:3001/api/search?key=${apiKey.value}&q=${encodeURIComponent(searchQuery.value)}&per_page=${itemsPerPage}&page=${page}&video=${isVideo ? 'true' : 'false'}&image_type=photo`;
+    const url = `http://localhost:3005/api/search?key=${apiKey.value}&q=${encodeURIComponent(searchQuery.value)}&per_page=${itemsPerPage}&page=${page}&video=${isVideo ? 'true' : 'false'}&image_type=photo`;
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -136,7 +136,7 @@ const executeDownload = async (targetUrl: string, isVideo: boolean = false) => {
   // DIRECT raw file URLs for both its Images and its MP4s. 
   // Our backend 'image' fetcher simply fetches any direct URL and pipes it back.
   // It doesn't use yt-dlp.
-  const response = await fetch('http://localhost:3001/api/download', {
+  const response = await fetch('http://localhost:3005/api/download', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

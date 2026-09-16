@@ -21,7 +21,7 @@ const test = async () => {
 
   console.log('Sending request to Video Mixer API...');
   
-  const request = http.request('http://localhost:3001/api/video-mixer', {
+  const request = http.request('http://localhost:3005/api/video-mixer', {
     method: 'POST',
     headers: form.getHeaders(),
   });

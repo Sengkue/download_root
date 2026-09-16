@@ -541,7 +541,7 @@ onMounted(async () => {
 const fetchLessons = async () => {
   loading.value = true;
   try {
-    const res = await fetch('http://localhost:3001/api/typing-lessons');
+    const res = await fetch('http://localhost:3005/api/typing-lessons');
     const data = await res.json();
     lessons.value = data;
     if (data.length > 0 && !selectedLesson.value) {
@@ -672,7 +672,7 @@ const submitResult = async () => {
       timeSeconds: formattedTime.value
     };
 
-    const res = await fetch('http://localhost:3001/api/typing-history', {
+    const res = await fetch('http://localhost:3005/api/typing-history', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

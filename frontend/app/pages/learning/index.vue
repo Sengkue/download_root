@@ -242,7 +242,7 @@ const allCourses = ref([]);
 const fetchCourses = async () => {
   try {
     const config = useRuntimeConfig();
-    const apiBase = config.public.apiBase || 'http://localhost:3001';
+    const apiBase = config.public.apiBase || 'http://localhost:3005';
     const res = await fetch(`${apiBase}/api/learning-videos`);
     if (res.ok) {
       const data = await res.json();

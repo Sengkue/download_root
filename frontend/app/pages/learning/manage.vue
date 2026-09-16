@@ -127,7 +127,7 @@ definePageMeta({
 });
 
 const config = useRuntimeConfig();
-const API_BASE = config.public.apiBase || 'http://localhost:3001';
+const API_BASE = config.public.apiBase || 'http://localhost:3005';
 
 const loading = ref(false);
 const dialog = ref(false);

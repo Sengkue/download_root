@@ -129,7 +129,7 @@ onMounted(async () => {
 const fetchLessons = async () => {
   loading.value = true;
   try {
-    const res = await fetch('http://localhost:3001/api/typing-lessons');
+    const res = await fetch('http://localhost:3005/api/typing-lessons');
     const data = await res.json();
     lessons.value = data;
   } catch (err) {
@@ -161,8 +161,8 @@ const saveLesson = async () => {
   
   try {
     const url = isEditing.value 
-      ? `http://localhost:3001/api/typing-lessons/${editingId.value}`
-      : 'http://localhost:3001/api/typing-lessons';
+      ? `http://localhost:3005/api/typing-lessons/${editingId.value}`
+      : 'http://localhost:3005/api/typing-lessons';
     
     const method = isEditing.value ? 'PUT' : 'POST';
 
@@ -191,7 +191,7 @@ const deleteLesson = async (item) => {
   
   deletingLessonId.value = item.id;
   try {
-    const res = await fetch(`http://localhost:3001/api/typing-lessons/${item.id}`, {
+    const res = await fetch(`http://localhost:3005/api/typing-lessons/${item.id}`, {
       method: 'DELETE'
     });
     if (res.ok) {
