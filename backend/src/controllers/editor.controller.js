@@ -5,6 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
 import { progressMap, activeJobsMap } from './download.controller.js';
+import { buildOverlayFilters } from './videoMixer.controller.js';
 
 /**
  * Parse time value to seconds (supports HH:MM:SS.ms and raw microseconds).
@@ -195,6 +196,30 @@ export const mergeMedia = async (req, res) => {
     };
 
     // ══════════════════════════════════════════════════════════
+    // OVERLAYS PARSING
+    // ══════════════════════════════════════════════════════════
+    const overlayParams = {
+      timerEnabled: req.body.overlayTimerEnabled === 'true',
+      timerMinutes: parseInt(req.body.overlayTimerMinutes) || 25,
+      timerBreakMinutes: parseInt(req.body.overlayTimerBreakMinutes) || 5,
+      timerPosition: req.body.overlayTimerPosition || 'top-right',
+      timerShowProgress: req.body.overlayTimerShowProgress === 'true',
+      timerWithBreak: req.body.overlayTimerWithBreak === 'true',
+
+      logoEnabled: req.body.overlayLogoEnabled === 'true',
+      logoPath: req.files['logo'] ? path.resolve(req.files['logo'][0].path) : null,
+      logoPosition: req.body.overlayLogoPosition || 'bottom-right',
+      logoOpacity: parseFloat(req.body.overlayLogoOpacity) || 0.8,
+      logoSize: parseInt(req.body.overlayLogoSize) || 150,
+
+      quotesEnabled: req.body.overlayQuotesEnabled === 'true',
+      quotesInterval: parseInt(req.body.overlayQuotesInterval) || 5,
+      quotesDuration: parseInt(req.body.overlayQuotesDuration) || 15,
+      quotesPosition: req.body.overlayQuotesPosition || 'bottom-center',
+      customQuotes: req.body.overlayCustomQuotes || ''
+    };
+
+    // ══════════════════════════════════════════════════════════
     // SINGLE IMAGE — simple: zoom across the full audio length
     // ══════════════════════════════════════════════════════════
     if (imageFiles.length === 1) {
@@ -212,12 +237,31 @@ export const mergeMedia = async (req, res) => {
       if (tTarget > 0) {
         singleArgs.push('-stream_loop', '-1');
       }
+      singleArgs.push('-i', audioPath);
+
+      const overlay = buildOverlayFilters(overlayParams, targetLength, 2);
+      const hasOverlays = overlayParams.timerEnabled || overlayParams.logoEnabled || overlayParams.quotesEnabled;
+      
+      let finalFilterComplex = `[0:v]scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${singleZoompan},scale=${resolution}:flags=bilinear,setpts=PTS-STARTPTS,format=yuv420p`;
+      
+      if (hasOverlays) {
+        finalFilterComplex += `[vbase]; ${overlay.filters}`;
+        for (const arg of overlay.extraInputs) {
+          singleArgs.push(arg);
+        }
+      } else {
+        finalFilterComplex += `[vout]`;
+      }
+
+      const singleFilterScript = path.join(tmpDir, `filter1-${tmpId}.txt`);
+      fs.writeFileSync(singleFilterScript, finalFilterComplex.trim().replace(/;$/, ''));
+      tmpFiles.push(singleFilterScript);
+
       singleArgs.push(
-        '-i', audioPath,
-        '-map', '0:v', '-map', '1:a',
+        '-filter_complex_script', singleFilterScript,
+        '-map', '[vout]', '-map', '1:a',
         '-c:v', 'libx264', '-preset', 'veryfast',
         '-c:a', 'aac', '-b:a', '192k', '-pix_fmt', 'yuv420p',
-        '-vf', `scale=${ZP_INPUT_W}:${ZP_INPUT_H}:force_original_aspect_ratio=increase,crop=${ZP_INPUT_W}:${ZP_INPUT_H},setsar=1,${singleZoompan},scale=${resolution}:flags=bilinear,setpts=PTS-STARTPTS,format=yuv420p`,
         '-t', targetLength.toString(),
         '-y', '-progress', 'pipe:1',
         outputPath
@@ -348,16 +392,46 @@ export const mergeMedia = async (req, res) => {
       }
       const fadeOutStart = Math.max(0, targetLength - 2);
 
-      pass2Args.push(
-        '-i', audioPath,
-        '-filter_complex', `[1:a]afade=t=out:st=${fadeOutStart}:d=2[aout]`,
-        '-map', '0:v', '-map', '[aout]',
-        '-c:v', 'copy',         // NO re-encoding! Preserves exact quality from Pass 1
-        '-c:a', 'aac', '-b:a', '192k',
-        '-t', targetLength.toString(),
-        '-y', '-progress', 'pipe:1',
-        outputPath
-      );
+      pass2Args.push('-i', audioPath);
+
+      // Overlays for Multi-Image
+      const overlay = buildOverlayFilters(overlayParams, targetLength, 2);
+      const hasOverlays = overlayParams.timerEnabled || overlayParams.logoEnabled || overlayParams.quotesEnabled;
+      
+      let pass2FilterComplex = `[1:a]afade=t=out:st=${fadeOutStart}:d=2[aout_final];`;
+      
+      if (hasOverlays) {
+        pass2FilterComplex += `[0:v]null[vbase]; ${overlay.filters}`;
+        for (const arg of overlay.extraInputs) {
+          pass2Args.push(arg);
+        }
+      }
+
+      if (hasOverlays) {
+        const pass2FilterScript = path.join(tmpDir, `filter2-${tmpId}.txt`);
+        fs.writeFileSync(pass2FilterScript, pass2FilterComplex.trim().replace(/;$/, ''));
+        tmpFiles.push(pass2FilterScript);
+
+        pass2Args.push(
+          '-filter_complex_script', pass2FilterScript,
+          '-map', '[vout]', '-map', '[aout_final]',
+          '-c:v', 'libx264', '-preset', 'veryfast',
+          '-c:a', 'aac', '-b:a', '192k',
+          '-t', targetLength.toString(),
+          '-y', '-progress', 'pipe:1',
+          outputPath
+        );
+      } else {
+        pass2Args.push(
+          '-filter_complex', pass2FilterComplex,
+          '-map', '0:v', '-map', '[aout_final]',
+          '-c:v', 'copy',         // NO re-encoding! Preserves exact quality from Pass 1
+          '-c:a', 'aac', '-b:a', '192k',
+          '-t', targetLength.toString(),
+          '-y', '-progress', 'pipe:1',
+          outputPath
+        );
+      }
 
       await runFFmpeg(pass2Args, { jobId, expectedDuration: targetLength, progressOffset: 65, progressScale: 34 });
 

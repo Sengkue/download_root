@@ -34,7 +34,7 @@ const DEFAULT_QUOTES = [
  * Escape text for FFmpeg drawtext filter.
  * Since we pass args via spawn() (no shell), we only need one level of FFmpeg escaping.
  */
-function escapeDrawtext(text) {
+export function escapeDrawtext(text) {
   return text
     .replace(/\\/g, '\\\\')
     .replace(/:/g, '\\:')
@@ -45,10 +45,11 @@ function escapeDrawtext(text) {
 }
 
 /**
- * Build overlay filter chain string for FFmpeg.
+ * Build the complex filter string for dynamic overlays (Pomodoro timer, Quotes, Logo).
+ * Returns { filterString, nextInputIndex, hasOverlays }
  * All escaping uses single-backslash level since spawn() passes args directly (no shell).
  */
-function buildOverlayFilters(params, totalDuration, extraInputStartIndex) {
+export function buildOverlayFilters(params, totalDuration, extraInputStartIndex) {
   const {
     timerEnabled, timerMinutes, timerBreakMinutes, timerPosition, timerShowProgress, timerWithBreak,
     logoEnabled, logoPath, logoPosition, logoOpacity, logoSize,

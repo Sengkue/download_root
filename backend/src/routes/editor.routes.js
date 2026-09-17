@@ -6,7 +6,8 @@ const router = express.Router();
 
 router.post('/merge', upload.fields([
   { name: 'image', maxCount: 500 },
-  { name: 'audio', maxCount: 100 }
+  { name: 'audio', maxCount: 100 },
+  { name: 'logo', maxCount: 1 }
 ]), mergeMedia);
 
 router.post('/cancel', cancelJob);

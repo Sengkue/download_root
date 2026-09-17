@@ -1,0 +1,344 @@
+      <!-- YouTube Overlay Settings Panel -->
+      <div v-if="!videoUrl" class="settings-panel glass-card mt-6 overlay-panel">
+        <div class="d-flex align-center mb-8">
+          <div
+            class="icon-box rounded-xl pa-3 mr-4 d-flex align-center justify-center"
+            style="background: linear-gradient(135deg, rgba(255,107,107,0.2), rgba(132,94,194,0.2))"
+          >
+            <v-icon icon="mdi-youtube" color="red" size="28"></v-icon>
+          </div>
+          <div>
+            <h3 class="text-h5 font-weight-bold text-white mb-0">
+              YouTube Overlay Settings
+            </h3>
+            <p class="text-caption text-grey-lighten-1 mb-0">
+              Add visual overlays for Transformative Content
+            </p>
+          </div>
+        </div>
+
+        <!-- ============ 1. POMODORO TIMER ============ -->
+        <div class="overlay-section">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="d-flex align-center">
+              <v-icon icon="mdi-timer-outline" color="purple-lighten-2" class="mr-3" size="24"></v-icon>
+              <div>
+                <p class="font-weight-bold mb-0 text-white">Pomodoro Timer</p>
+                <p class="text-caption text-grey-lighten-1 mb-0">Countdown timer with progress bar</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="overlayTimer.enabled"
+              color="purple-lighten-2"
+              inset
+              hide-details
+              density="compact"
+            ></v-switch>
+          </div>
+
+          <v-expand-transition>
+            <div v-if="overlayTimer.enabled">
+              <v-row dense>
+                <v-col cols="12" md="4">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Timer Duration</p>
+                  <div class="d-flex align-center" style="gap: 8px">
+                    <v-btn
+                      v-for="preset in [25, 50, 90]"
+                      :key="preset"
+                      :color="overlayTimer.minutes === preset ? 'purple-lighten-2' : 'grey-darken-3'"
+                      :variant="overlayTimer.minutes === preset ? 'flat' : 'outlined'"
+                      size="small"
+                      height="40"
+                      @click="overlayTimer.minutes = preset"
+                      class="timer-preset-btn"
+                    >
+                      {{ preset }}m
+                    </v-btn>
+                    <v-text-field
+                      v-model.number="overlayTimer.minutes"
+                      type="number"
+                      min="1"
+                      max="180"
+                      density="compact"
+                      hide-details
+                      variant="outlined"
+                      bg-color="rgba(255,255,255,0.05)"
+                      color="purple-lighten-2"
+                      class="rounded-lg"
+                      style="max-width: 110px"
+                      suffix="min"
+                    ></v-text-field>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Position</p>
+                  <v-select
+                    v-model="overlayTimer.position"
+                    :items="positionOptions"
+                    item-title="title"
+                    item-value="value"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="purple-lighten-2"
+                    class="rounded-lg"
+                    theme="dark"
+                    :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="4" class="d-flex flex-column justify-center" style="gap: 4px">
+                  <v-switch
+                    v-model="overlayTimer.showProgress"
+                    label="Show Progress Bar"
+                    color="purple-lighten-2"
+                    inset
+                    hide-details
+                    density="compact"
+                    class="text-white"
+                  ></v-switch>
+                  <div class="d-flex align-center gap-4 mt-2">
+                    <v-switch
+                      v-model="overlayTimer.withBreak"
+                      label="Add Short Break"
+                      color="green-lighten-2"
+                      inset
+                      hide-details
+                      density="compact"
+                      class="text-white"
+                    ></v-switch>
+                    
+                    <v-text-field
+                      v-if="overlayTimer.withBreak"
+                      v-model.number="overlayTimer.breakMinutes"
+                      type="number"
+                      min="1"
+                      max="60"
+                      density="compact"
+                      hide-details
+                      variant="outlined"
+                      bg-color="rgba(0,0,0,0.4)"
+                      class="timer-input"
+                      style="max-width: 90px;"
+                      suffix="m"
+                    ></v-text-field>
+                  </div>
+                </v-col>
+              </v-row>
+            </div>
+          </v-expand-transition>
+        </div>
+
+        <v-divider class="my-5" color="rgba(255,255,255,0.08)"></v-divider>
+
+        <!-- ============ 2. WATERMARK / LOGO ============ -->
+        <div class="overlay-section">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="d-flex align-center">
+              <v-icon icon="mdi-watermark" color="amber-lighten-2" class="mr-3" size="24"></v-icon>
+              <div>
+                <p class="font-weight-bold mb-0 text-white">Watermark / Logo</p>
+                <p class="text-caption text-grey-lighten-1 mb-0">Brand your content with a logo overlay</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="overlayLogo.enabled"
+              color="amber-lighten-2"
+              inset
+              hide-details
+              density="compact"
+            ></v-switch>
+          </div>
+
+          <v-expand-transition>
+            <div v-if="overlayLogo.enabled">
+              <v-row dense>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Logo File (PNG)</p>
+                  <div
+                    class="logo-upload-zone"
+                    :class="{ 'has-logo': overlayLogo.file }"
+                    @click="$refs.logoInput.click()"
+                  >
+                    <input
+                      type="file"
+                      ref="logoInput"
+                      accept="image/png,image/webp,image/svg+xml"
+                      class="d-none"
+                      @change="onSelectLogo"
+                      @click.stop
+                    />
+                    <div v-if="!overlayLogo.file" class="text-center">
+                      <v-icon icon="mdi-image-plus" size="28" color="amber-lighten-2" class="mb-1"></v-icon>
+                      <p class="text-caption text-grey-lighten-1 mb-0">Click to upload</p>
+                    </div>
+                    <div v-else class="d-flex align-center" style="gap: 8px">
+                      <v-icon icon="mdi-check-circle" color="success" size="20"></v-icon>
+                      <span class="text-caption text-white text-truncate" style="max-width: 100px">{{ overlayLogo.file.name }}</span>
+                      <v-btn icon="mdi-close" size="x-small" color="error" variant="text" @click.stop="clearLogo"></v-btn>
+                    </div>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Position</p>
+                  <v-select
+                    v-model="overlayLogo.position"
+                    :items="logoPositionOptions"
+                    item-title="title"
+                    item-value="value"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="amber-lighten-2"
+                    class="rounded-lg"
+                    theme="dark"
+                    :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Opacity: {{ overlayLogo.opacity }}</p>
+                  <v-slider
+                    v-model="overlayLogo.opacity"
+                    color="amber-lighten-2"
+                    track-color="rgba(255,255,255,0.1)"
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    hide-details
+                    thumb-size="16"
+                    track-size="4"
+                  ></v-slider>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Size: {{ overlayLogo.size }}px</p>
+                  <v-slider
+                    v-model="overlayLogo.size"
+                    color="amber-lighten-2"
+                    track-color="rgba(255,255,255,0.1)"
+                    min="50"
+                    max="300"
+                    step="10"
+                    hide-details
+                    thumb-size="16"
+                    track-size="4"
+                  ></v-slider>
+                </v-col>
+              </v-row>
+            </div>
+          </v-expand-transition>
+        </div>
+
+        <v-divider class="my-5" color="rgba(255,255,255,0.08)"></v-divider>
+
+        <!-- ============ 3. DYNAMIC QUOTES ============ -->
+        <div class="overlay-section">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="d-flex align-center">
+              <v-icon icon="mdi-format-quote-close" color="cyan-lighten-2" class="mr-3" size="24"></v-icon>
+              <div>
+                <p class="font-weight-bold mb-0 text-white">Motivational Quotes</p>
+                <p class="text-caption text-grey-lighten-1 mb-0">Auto-display timed motivational text</p>
+              </div>
+            </div>
+            <v-switch
+              v-model="overlayQuotes.enabled"
+              color="cyan-lighten-2"
+              inset
+              hide-details
+              density="compact"
+            ></v-switch>
+          </div>
+
+          <v-expand-transition>
+            <div v-if="overlayQuotes.enabled">
+              <v-row dense>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Show Every (min)</p>
+                  <v-text-field
+                    v-model.number="overlayQuotes.interval"
+                    type="number"
+                    min="1"
+                    max="60"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Display Duration (sec)</p>
+                  <v-text-field
+                    v-model.number="overlayQuotes.duration"
+                    type="number"
+                    min="5"
+                    max="60"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                  ></v-text-field>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Position</p>
+                  <v-select
+                    v-model="overlayQuotes.position"
+                    :items="quotePositionOptions"
+                    item-title="title"
+                    item-value="value"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                    theme="dark"
+                    :menu-props="{ contentClass: 'bg-grey-darken-4' }"
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" md="3" class="d-flex align-center">
+                  <v-chip
+                    v-if="overlayQuotes.customQuotes.trim().length === 0"
+                    color="cyan-lighten-2"
+                    variant="outlined"
+                    size="small"
+                    prepend-icon="mdi-auto-fix"
+                  >
+                    Using 20 default quotes
+                  </v-chip>
+                  <v-chip
+                    v-else
+                    color="cyan-lighten-2"
+                    variant="flat"
+                    size="small"
+                    prepend-icon="mdi-text-box-check"
+                  >
+                    {{ overlayQuotes.customQuotes.split('\n').filter(l => l.trim()).length }} custom quotes
+                  </v-chip>
+                </v-col>
+              </v-row>
+              <v-row dense class="mt-2">
+                <v-col cols="12">
+                  <p class="text-caption text-grey-lighten-1 mb-1">Custom Quotes (one per line, leave empty for defaults)</p>
+                  <v-textarea
+                    v-model="overlayQuotes.customQuotes"
+                    rows="3"
+                    density="compact"
+                    hide-details
+                    variant="outlined"
+                    bg-color="rgba(255,255,255,0.05)"
+                    color="cyan-lighten-2"
+                    class="rounded-lg"
+                    placeholder="Stay focused...&#10;Deep work in progress...&#10;You are doing amazing!"
+                  ></v-textarea>
+                </v-col>
+              </v-row>
+            </div>
+          </v-expand-transition>
+        </div>
+      </div>
+
