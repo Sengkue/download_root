@@ -96,6 +96,20 @@
         <v-icon start icon="mdi-cloud-upload"></v-icon>
         Upload to YouTube
       </v-btn>
+
+      <div v-if="isUploading" class="mt-4">
+        <div class="d-flex justify-space-between mb-1">
+          <span class="text-caption text-grey-lighten-1">{{ uploadStatusText }}</span>
+          <span class="text-caption font-weight-bold">{{ roundedProgress }}%</span>
+        </div>
+        <v-progress-linear
+          :model-value="uploadProgress"
+          color="error"
+          height="8"
+          rounded
+          striped
+        ></v-progress-linear>
+      </div>
       
       <!-- Connect Another -->
       <v-btn variant="text" block size="small" class="mt-2 text-grey" @click="connectYoutube">
@@ -120,7 +134,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { useMediaApi } from '~/composables/useMediaApi';
+const { createProgressStream } = useMediaApi();
+import { ref, onMounted, computed } from 'vue';
 
 const props = defineProps({
   videoPath: {
@@ -140,6 +156,9 @@ const privacyStatus = ref('private');
 
 const isUploading = ref(false);
 const uploadStatus = ref(null);
+const uploadProgress = ref(0);
+const uploadStatusText = ref('');
+const roundedProgress = computed(() => Math.round(uploadProgress.value || 0));
 
 const fetchChannels = async () => {
   loadingChannels.value = true;
@@ -171,14 +190,26 @@ const connectYoutube = async () => {
 };
 
 const uploadVideo = async () => {
-  isUploading.value = true;
-  uploadStatus.value = null;
-  
-  try {
+    isUploading.value = true;
+    uploadStatus.value = null;
+    uploadProgress.value = 0;
+    uploadStatusText.value = 'Preparing upload...';
+
+    const jobId = "job_yt_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6);
+    let eventSource = createProgressStream(jobId);
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.progress) uploadProgress.value = data.progress;
+      if (data.status) uploadStatusText.value = data.status;
+    };
+    eventSource.onerror = () => eventSource.close();
+
+    try {
     const res = await fetch('http://localhost:3005/api/youtube/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+          jobId,
         channelId: selectedChannel.value,
         videoPath: props.videoPath,
         title: videoTitle.value,
@@ -188,24 +219,25 @@ const uploadVideo = async () => {
       })
     });
     
-    const text = await res.text();
-    
-    if (res.ok) {
-      const match = text.match(/https:\/\/youtu\.be\/[\w-]+/);
-      uploadStatus.value = {
-        type: 'success',
-        message: 'Upload successful!',
-        link: match ? match[0] : null
-      };
+    const data = await res.json();
+      if (res.ok) {
+        uploadStatus.value = {
+          type: 'success',
+          message: 'Upload successful!',
+          link: data.url
+        };
+        uploadProgress.value = 100;
+        uploadStatusText.value = 'Upload complete!';
     } else {
       uploadStatus.value = {
         type: 'error',
-        message: 'Upload failed: ' + text
+        message: 'Upload failed: ' + (data.error || 'Unknown error')
       };
     }
   } catch (error) {
     uploadStatus.value = { type: 'error', message: 'Upload failed: ' + error.message };
   } finally {
+    if (eventSource) eventSource.close();
     isUploading.value = false;
   }
 };

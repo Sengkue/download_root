@@ -26,7 +26,9 @@ export const useMediaApi = () => {
       throw new Error(`Server returned ${response.status} ${response.statusText}`);
     }
 
-    return await response.blob();
+    const blob = await response.blob();
+    const videoPath = response.headers.get('x-video-path');
+    return { blob, videoPath };
   };
 
   /**
@@ -44,7 +46,9 @@ export const useMediaApi = () => {
       throw new Error(`Server returned ${response.status} ${response.statusText}`);
     }
 
-    return await response.blob();
+    const blob = await response.blob();
+    const videoPath = response.headers.get('x-video-path');
+    return { blob, videoPath };
   };
 
   return {

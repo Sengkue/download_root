@@ -840,6 +840,8 @@
           Your browser does not support the video tag.
         </video>
 
+        <YoutubeUploader v-if="videoUrl" :videoPath="videoPath" />
+
         <div class="action-buttons mt-6">
           <v-btn
             size="large"
@@ -934,9 +936,9 @@
 </template>
 
 <script setup>
-import YoutubeUploader from '~/components/YoutubeUploader.vue';
+
 const videoPath = ref(null);
-import YoutubeUploader from '~/components/YoutubeUploader.vue';
+
 import { ref, computed, onUnmounted } from "vue";
 import { useMediaApi } from "~/composables/useMediaApi";
 
@@ -1273,7 +1275,8 @@ const generateVideo = async () => {
   });
 
   try {
-    const blob = await mixVideoMontage(formData);
+    const { blob, videoPath: path } = await mixVideoMontage(formData);
+      videoPath.value = path;
 
     currentProgress.value = 100;
     currentStatus.value = "Mixing Complete!";

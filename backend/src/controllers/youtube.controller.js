@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import fs from 'fs';
 import YouTubeChannel from '../models/YouTubeChannel.js';
+import { progressMap } from './download.controller.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.upload',
@@ -96,7 +97,7 @@ export const getConnectedChannels = async (req, res) => {
 };
 
 export const uploadVideo = async (req, res) => {
-  const { channelId, videoPath, title, description, tags, privacyStatus = 'private' } = req.body;
+  const { channelId, videoPath, title, description, tags, privacyStatus = 'private', jobId } = req.body;
 
   if (!channelId || !videoPath || !fs.existsSync(videoPath)) {
     return res.status(400).json({ error: 'Missing required fields or video not found.' });
@@ -119,9 +120,7 @@ export const uploadVideo = async (req, res) => {
     const fileSize = fs.statSync(videoPath).size;
     
     // Enable progress updates
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Transfer-Encoding', 'chunked');
-    res.write('Upload starting...\n');
+    if (jobId) progressMap.set(jobId, { progress: 0, status: 'Starting upload...' });
 
     const uploadRes = await youtube.videos.insert({
       part: 'snippet,status',
@@ -142,20 +141,24 @@ export const uploadVideo = async (req, res) => {
       }
     }, {
       onUploadProgress: evt => {
-        const progress = (evt.bytesRead / fileSize) * 100;
-        // console.log(`${Math.round(progress)}% complete`);
+        const progress = Math.round((evt.bytesRead / fileSize) * 100);
+        if (jobId) {
+          progressMap.set(jobId, { progress, status: 'Uploading to YouTube...' });
+        }
       }
     });
 
-    res.write(`Upload complete: https://youtu.be/${uploadRes.data.id}\n`);
-    res.end();
+    if (jobId) {
+      progressMap.set(jobId, { progress: 100, status: 'Upload complete!' });
+      setTimeout(() => progressMap.delete(jobId), 5000);
+    }
+    res.json({ url: `https://youtu.be/${uploadRes.data.id}` });
   } catch (error) {
     console.error('YouTube Upload Error:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: error.message });
     } else {
-      res.write(`\nError: ${error.message}\n`);
-      res.end();
+      res.status(500).json({ error: error.message });
     }
   }
 };

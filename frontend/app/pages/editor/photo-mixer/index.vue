@@ -44,7 +44,7 @@
         <!-- Audio Drop Zone -->
         <div 
           class="drop-zone glass-card"
-          :class="{ 'drag-over': isDraggingAudio, 'has-file': audioFile }"
+          :class="{ 'drag-over': isDraggingAudio, 'has-file': audioFiles.length > 0 }"
           @dragover.prevent="isDraggingAudio = true"
           @dragleave.prevent="isDraggingAudio = false"
           @drop.prevent="onDropAudio"
@@ -702,6 +702,8 @@
           Your browser does not support the video tag.
         </video>
         
+        <YoutubeUploader v-if="videoUrl" :videoPath="videoPath" />
+
         <div class="action-buttons mt-6">
           <v-btn
             size="large"
@@ -769,9 +771,7 @@
 </template>
 
 <script setup>
-import YoutubeUploader from '~/components/YoutubeUploader.vue';
 const videoPath = ref(null);
-import YoutubeUploader from '~/components/YoutubeUploader.vue';
 import { ref, computed } from 'vue';
 import { useMediaApi } from '~/composables/useMediaApi';
 
@@ -1035,7 +1035,8 @@ const generateVideo = async () => {
     currentStatus.value = 'Uploading to server...';
     currentProgress.value = 1;
     
-    const blob = await mixImageMontage(formData);
+    const { blob, videoPath: path } = await mixImageMontage(formData);
+      videoPath.value = path;
     
     currentProgress.value = 100;
     currentStatus.value = '✅ Video Ready!';

@@ -115,7 +115,8 @@ export const mergeMedia = async (req, res) => {
     const tmpId = crypto.randomBytes(8).toString('hex');
     const tmpDir = os.tmpdir();
     const outputPath = path.join(tmpDir, `merged-${tmpId}.mp4`);
-    tmpFiles.push(outputPath);
+    // DO NOT push outputPath to tmpFiles, so cleanup() doesn't delete it immediately
+    // tmpFiles.push(outputPath);
 
     // ─── Pass 0: Merge Audio (if multiple) ───
     if (req.files['audio'].length > 1) {
@@ -254,7 +255,7 @@ export const mergeMedia = async (req, res) => {
       }
 
       const singleFilterScript = path.join(tmpDir, `filter1-${tmpId}.txt`);
-      fs.writeFileSync(singleFilterScript, finalFilterComplex.trim().replace(/;$/, ''));
+      fs.writeFileSync(singleFilterScript, finalFilterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''));
       tmpFiles.push(singleFilterScript);
 
       singleArgs.push(
@@ -409,7 +410,7 @@ export const mergeMedia = async (req, res) => {
 
       if (hasOverlays) {
         const pass2FilterScript = path.join(tmpDir, `filter2-${tmpId}.txt`);
-        fs.writeFileSync(pass2FilterScript, pass2FilterComplex.trim().replace(/;$/, ''));
+        fs.writeFileSync(pass2FilterScript, pass2FilterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''));
         tmpFiles.push(pass2FilterScript);
 
         pass2Args.push(
@@ -457,6 +458,11 @@ export const mergeMedia = async (req, res) => {
         if (jobId) progressMap.delete(jobId);
       }, 5000);
       cleanup(req, imageFiles, audioPath, tmpFiles);
+      
+      // Delete the final video after 1 hour to allow time for YouTube upload
+      setTimeout(() => {
+        try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch (_) {}
+      }, 3600000);
     });
 
   } catch (error) {

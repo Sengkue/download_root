@@ -1,10 +1,16 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../../backend/.env') });
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/database.js';
 import { connectGoogleSheets } from './config/googleSheets.js';
 import routes from './routes/index.js';
-import path from 'path';
+
 import fs from 'fs';
 import { uploadDir } from './middlewares/upload.middleware.js';
 
@@ -12,7 +18,7 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 // Middlewares
-app.use(cors());
+app.use(cors({ exposedHeaders: ['Content-Disposition', 'Content-Length', 'X-Video-Path'] }));
 app.use(express.json());
 
 // Serve static uploads

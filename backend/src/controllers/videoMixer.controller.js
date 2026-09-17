@@ -471,7 +471,7 @@ export const mixVideo = async (req, res) => {
       }
 
       const filterScriptPath = path.join(tmpDir, `filter-${tmpId}.txt`);
-      fs.writeFileSync(filterScriptPath, filterComplex.trim().replace(/;$/, ''));
+      fs.writeFileSync(filterScriptPath, filterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''));
       tmpFiles.push(filterScriptPath);
 
       ffmpegArgs.push('-filter_complex_script', filterScriptPath);
@@ -544,7 +544,7 @@ export const mixVideo = async (req, res) => {
       }
 
       const filterScriptPath = path.join(tmpDir, `filter-${tmpId}.txt`);
-      fs.writeFileSync(filterScriptPath, filterComplex.trim().replace(/;$/, ''));
+      fs.writeFileSync(filterScriptPath, filterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''));
       tmpFiles.push(filterScriptPath);
 
       pass1Args.push(
