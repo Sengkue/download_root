@@ -934,6 +934,9 @@
 </template>
 
 <script setup>
+import YoutubeUploader from '~/components/YoutubeUploader.vue';
+const videoPath = ref(null);
+import YoutubeUploader from '~/components/YoutubeUploader.vue';
 import { ref, computed, onUnmounted } from "vue";
 import { useMediaApi } from "~/composables/useMediaApi";
 
@@ -1164,6 +1167,7 @@ const resetMixer = () => {
   audioFiles.value = [];
   if (videoUrl.value) URL.revokeObjectURL(videoUrl.value);
   videoUrl.value = null;
+  videoPath.value = null;
   currentProgress.value = 0;
   currentStatus.value = "";
   if (videoInput.value) videoInput.value.value = "";

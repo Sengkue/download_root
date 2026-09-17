@@ -769,6 +769,9 @@
 </template>
 
 <script setup>
+import YoutubeUploader from '~/components/YoutubeUploader.vue';
+const videoPath = ref(null);
+import YoutubeUploader from '~/components/YoutubeUploader.vue';
 import { ref, computed } from 'vue';
 import { useMediaApi } from '~/composables/useMediaApi';
 
@@ -1090,6 +1093,7 @@ const resetEditor = () => {
   
   if (videoUrl.value) URL.revokeObjectURL(videoUrl.value);
   videoUrl.value = null;
+  videoPath.value = null;
   
   if (imageInput.value) imageInput.value.value = '';
   if (audioInput.value) audioInput.value.value = '';

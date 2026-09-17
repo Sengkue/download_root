@@ -446,7 +446,8 @@ export const mergeMedia = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="generated-slideshow.mp4"`);
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Content-Length', stat.size.toString());
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length');
+    res.setHeader('X-Video-Path', outputPath);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, X-Video-Path');
 
     const fileStream = fs.createReadStream(outputPath);
     fileStream.pipe(res);

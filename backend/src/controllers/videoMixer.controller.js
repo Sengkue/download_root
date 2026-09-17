@@ -632,10 +632,12 @@ export const mixVideo = async (req, res) => {
       progressMap.set(jobId, { progress: 100, status: 'Complete' });
     }
 
+    res.setHeader('X-Video-Path', outputPath);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, X-Video-Path');
+
     res.download(outputPath, 'mixed_video.mp4', (err) => {
       if (err) console.error('Download error:', err);
-      // Clean up
-      tmpFiles.push(outputPath);
+      // Clean up (keep output video for potential YouTube upload)
       tmpFiles.forEach(file => {
         try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch(e) {}
       });
