@@ -49,6 +49,16 @@
           color="primary"
           class="nav-item mb-1"
         ></v-list-item>
+
+        <v-list-item 
+          to="/editor/music-video-maker" 
+          prepend-icon="mdi-music-box-multiple-outline" 
+          title="Music Video Maker" 
+          subtitle="YouTube Song Compilation"
+          rounded="lg"
+          color="primary"
+          class="nav-item mb-1"
+        ></v-list-item>
       </v-list>
     </v-navigation-drawer>
 

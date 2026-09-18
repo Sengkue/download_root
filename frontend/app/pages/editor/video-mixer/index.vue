@@ -840,7 +840,30 @@
           Your browser does not support the video tag.
         </video>
 
-        <YoutubeUploader v-if="videoUrl" :videoPath="videoPath" />
+        <v-row class="mt-4" v-if="videoUrl">
+          <v-col cols="12">
+            <h4 class="mb-4 text-h6 font-weight-light">Publish Video</h4>
+            <v-select
+              v-model="selectedPublisher"
+              :items="['None', 'YouTube', 'TikTok']"
+              label="Select Platform"
+              variant="outlined"
+              bg-color="rgba(255,255,255,0.05)"
+              color="cyan-lighten-2"
+              class="mb-4"
+              hide-details
+            ></v-select>
+
+            <v-slide-y-transition mode="out-in">
+              <div v-if="selectedPublisher === 'YouTube'" key="youtube">
+                <YoutubeUploader :videoPath="videoPath" />
+              </div>
+              <div v-else-if="selectedPublisher === 'TikTok'" key="tiktok">
+                <TiktokUploader :videoPath="videoPath" />
+              </div>
+            </v-slide-y-transition>
+          </v-col>
+        </v-row>
 
         <div class="action-buttons mt-6">
           <v-btn
@@ -974,6 +997,8 @@ const keepOriginalAudio = ref(false);
 
 // ====== Overlay Settings ======
 const logoInput = ref(null);
+
+const selectedPublisher = ref('None');
 
 const overlayTimer = ref({
   enabled: false,

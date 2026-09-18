@@ -32,6 +32,26 @@ export const useMediaApi = () => {
   };
 
   /**
+   * Sends a request to the Music Mixer backend
+   * @param {FormData} formData - The payload containing video, audio, and settings
+   * @returns {Promise<Blob>} The generated video as a Blob
+   */
+  const mixMusicVideo = async (formData) => {
+    const response = await fetch(`${apiBaseUrl}/music-mixer/mix`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const videoPath = response.headers.get('x-video-path');
+    return { blob, videoPath };
+  };
+
+  /**
    * Sends a request to the Image Slideshow backend
    * @param {FormData} formData - The payload containing images, audio, and settings
    * @returns {Promise<Blob>} The generated video as a Blob
@@ -54,6 +74,7 @@ export const useMediaApi = () => {
   return {
     createProgressStream,
     mixVideoMontage,
+    mixMusicVideo,
     mixImageMontage
   };
 };

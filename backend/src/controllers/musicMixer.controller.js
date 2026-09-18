@@ -49,12 +49,14 @@ export function escapeDrawtext(text) {
  * Returns { filterString, nextInputIndex, hasOverlays }
  * All escaping uses single-backslash level since spawn() passes args directly (no shell).
  */
-export function buildOverlayFilters(params, totalDuration, extraInputStartIndex) {
+export function buildOverlayFilters(params, totalDuration, extraInputStartIndex, tmpDir, tmpFiles) {
   const {
-    timerEnabled, timerMinutes, timerBreakMinutes, timerPosition, timerShowProgress, timerWithBreak,
+    timerEnabled, timerMode, timerMinutes, timerBreakMinutes, timerWithBreak,
+    timerPosX, timerPosY, timerFontSize,
     logoEnabled, logoPath, logoPosition, logoOpacity, logoSize,
     quotesEnabled, quotesInterval, quotesDuration, quotesPosition, customQuotes,
-    showNowPlaying, nowPlayingSegments
+    showNowPlaying, nowPlayingSegments, playlistPosX, playlistPosY, playlistFontSize,
+    playlistItemsPerCol, playlistColGap
   } = params;
 
   let filters = '';
@@ -101,75 +103,72 @@ export function buildOverlayFilters(params, totalDuration, extraInputStartIndex)
   // ======== POMODORO TIMER ========
   if (timerEnabled) {
     const isLast = enabledOverlays[enabledOverlays.length - 1] === 'timer';
-    const minutes = parseInt(timerMinutes) || 25;
-    const bMinutes = parseInt(timerBreakMinutes) || 5;
-    const cycleSec = minutes * 60;
-    const breakSec = timerWithBreak ? (bMinutes * 60) : 0;
-    const totalCycleSec = cycleSec + breakSec;
+    
+    if (timerMode === 'persong' && nowPlayingSegments && nowPlayingSegments.length > 0) {
+      for (let i = 0; i < nowPlayingSegments.length; i++) {
+        const seg = nowPlayingSegments[i];
+        const segIsLast = isLast && (i === nowPlayingSegments.length - 1);
+        const timerNode = getNextNode(segIsLast);
+        
+        const timerX = `(W*${timerPosX || 75}/100)`;
+        const timerY = `(H*${timerPosY || 8}/100)`;
 
-    let timerX, timerY;
-    switch (timerPosition) {
-      case 'top-left':     timerX = '30'; timerY = '30'; break;
-      case 'top-right':    timerX = 'w-tw-30'; timerY = '30'; break;
-      case 'top-center':   timerX = '(w-tw)/2'; timerY = '30'; break;
-      case 'bottom-left':  timerX = '30'; timerY = 'h-th-60'; break;
-      case 'bottom-right': timerX = 'w-tw-30'; timerY = 'h-th-60'; break;
-      default:             timerX = 'w-tw-30'; timerY = '30'; break;
-    }
-
-    let timerText;
-    if (breakSec > 0) {
-      timerText = `%{eif\\: if(lt(mod(t\\,${totalCycleSec})\\,${cycleSec})\\, floor((${cycleSec}-mod(t\\,${totalCycleSec}))/60)\\, floor((${totalCycleSec}-mod(t\\,${totalCycleSec}))/60) ) \\:d\\:2}\\:%{eif\\: if(lt(mod(t\\,${totalCycleSec})\\,${cycleSec})\\, mod(floor(${cycleSec}-mod(t\\,${totalCycleSec}))\\,60)\\, mod(floor(${totalCycleSec}-mod(t\\,${totalCycleSec}))\\,60) ) \\:d\\:2}`;
+        const endTime = seg.end;
+        const startTime = seg.start;
+        // Remaining time = endTime - t
+        const timerText = `%{eif\\: floor((${endTime}-t)/60) \\:d\\:2}\\:%{eif\\: mod(floor(${endTime}-t)\\,60) \\:d\\:2}`;
+        
+        filters += `[${currentNode}]drawtext=text='${timerText}':`;
+        filters += `fontsize=${timerFontSize || 48}:fontcolor=white:`;
+        filters += `x=${timerX}:y=${timerY}:`;
+        filters += `box=1:boxcolor=black@0.55:boxborderw=14:`;
+        filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf':`;
+        filters += `enable='between(t\\,${startTime}\\,${endTime})'`;
+        filters += `[${timerNode}]; `;
+        currentNode = timerNode;
+      }
     } else {
-      timerText = `%{eif\\: floor((${cycleSec}-mod(t\\,${cycleSec}))/60) \\:d\\:2}\\:%{eif\\: mod(floor(${cycleSec}-mod(t\\,${cycleSec}))\\,60) \\:d\\:2}`;
-    }
+      const minutes = parseInt(timerMinutes) || 25;
+      const bMinutes = parseInt(timerBreakMinutes) || 5;
+      const cycleSec = minutes * 60;
+      const breakSec = timerWithBreak ? (bMinutes * 60) : 0;
+      const totalCycleSec = cycleSec + breakSec;
 
-    const timerNode1 = getNextNode(false);
-    filters += `[${currentNode}]drawtext=text='${timerText}':`;
-    filters += `fontsize=48:fontcolor=white:`;
-    filters += `x=${timerX}:y=${timerY}:`;
-    filters += `box=1:boxcolor=black@0.55:boxborderw=14:`;
-    filters += `fontfile='C\\:/Windows/Fonts/consola.ttf'`;
-    filters += `[${timerNode1}]; `;
-    currentNode = timerNode1;
+      const timerX = `(W*${timerPosX || 75}/100)`;
+      const timerY = `(H*${timerPosY || 8}/100)`;
 
-    if (breakSec > 0) {
-      const breakNode = getNextNode(false);
-      filters += `[${currentNode}]drawtext=text='BREAK':`;
-      filters += `fontsize=28:fontcolor=0x7CFC00:`;
-      filters += `x=${timerX}:y=${timerY}+60:`;
-      filters += `box=1:boxcolor=black@0.5:boxborderw=8:`;
-      filters += `fontfile='C\\:/Windows/Fonts/consola.ttf':`;
-      filters += `enable='gte(mod(t\\,${totalCycleSec})\\,${cycleSec})'`;
-      filters += `[${breakNode}]; `;
-      currentNode = breakNode;
-    }
+      let timerText;
+      if (breakSec > 0) {
+        timerText = `%{eif\\: if(lt(mod(t\\,${totalCycleSec})\\,${cycleSec})\\, floor((${cycleSec}-mod(t\\,${totalCycleSec}))/60)\\, floor((${totalCycleSec}-mod(t\\,${totalCycleSec}))/60) ) \\:d\\:2}\\:%{eif\\: if(lt(mod(t\\,${totalCycleSec})\\,${cycleSec})\\, mod(floor(${cycleSec}-mod(t\\,${totalCycleSec}))\\,60)\\, mod(floor(${totalCycleSec}-mod(t\\,${totalCycleSec}))\\,60) ) \\:d\\:2}`;
+      } else {
+        timerText = `%{eif\\: floor((${cycleSec}-mod(t\\,${cycleSec}))/60) \\:d\\:2}\\:%{eif\\: mod(floor(${cycleSec}-mod(t\\,${cycleSec}))\\,60) \\:d\\:2}`;
+      }
 
-    if (timerShowProgress) {
-      const bgNode = getNextNode(false);
-      const barY = timerPosition?.startsWith('bottom') ? 'ih-12' : (parseInt(timerY) || 30) + 75;
-      filters += `[${currentNode}]drawbox=x=0:y=${barY}:w=iw:h=8:color=black@0.4:t=fill[${bgNode}]; `;
-      currentNode = bgNode;
+      const timerNode1 = getNextNode(false);
+      filters += `[${currentNode}]drawtext=text='${timerText}':`;
+      filters += `fontsize=${timerFontSize || 48}:fontcolor=white:`;
+      filters += `x=${timerX}:y=${timerY}:`;
+      filters += `box=1:boxcolor=black@0.55:boxborderw=14:`;
+      filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf'`;
+      filters += `[${timerNode1}]; `;
+      currentNode = timerNode1;
 
       if (breakSec > 0) {
-        // Work phase: purple bar
-        const workNode = getNextNode(false);
-        filters += `[${currentNode}]drawbox=x=0:y=${barY}:w='mod(t\\,${totalCycleSec})/${cycleSec}*iw':h=8:color=0x845EC2@0.9:t=fill:enable='lt(mod(t\\,${totalCycleSec})\\,${cycleSec})'[${workNode}]; `;
-        currentNode = workNode;
-
-        // Break phase: green bar
-        const breakBarNode = getNextNode(isLast);
-        filters += `[${currentNode}]drawbox=x=0:y=${barY}:w='(mod(t\\,${totalCycleSec})-${cycleSec})/${breakSec}*iw':h=8:color=0x7CFC00@0.9:t=fill:enable='gte(mod(t\\,${totalCycleSec})\\,${cycleSec})'[${breakBarNode}]; `;
-        currentNode = breakBarNode;
-      } else {
-        const progressNode = getNextNode(isLast);
-        filters += `[${currentNode}]drawbox=x=0:y=${barY}:w='mod(t\\,${cycleSec})/${cycleSec}*iw':h=8:color=0x845EC2@0.9:t=fill[${progressNode}]; `;
-        currentNode = progressNode;
+        const breakNode = getNextNode(false);
+        filters += `[${currentNode}]drawtext=text='BREAK':`;
+        filters += `fontsize=28:fontcolor=0x7CFC00:`;
+        filters += `x=${timerX}:y=${timerY}+60:`;
+        filters += `box=1:boxcolor=black@0.5:boxborderw=8:`;
+        filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf':`;
+        filters += `enable='gte(mod(t\\,${totalCycleSec})\\,${cycleSec})'`;
+        filters += `[${breakNode}]; `;
+        currentNode = breakNode;
       }
-    } else if (isLast) {
-      const finalNode = getNextNode(true);
-      filters += `[${currentNode}]null[${finalNode}]; `;
-      currentNode = finalNode;
+      if (isLast) {
+        const finalNode = getNextNode(true);
+        filters += `[${currentNode}]null[${finalNode}]; `;
+        currentNode = finalNode;
+      }
     }
   }
 
@@ -208,17 +207,21 @@ export function buildOverlayFilters(params, totalDuration, extraInputStartIndex)
       if (startTime < 0) continue;
 
       const quote = quotes[i % quotes.length];
-      const escapedQuote = escapeDrawtext(quote);
       const isLast = enabledOverlays[enabledOverlays.length - 1] === 'quotes' && i === numQuotes - 1;
       const outNode = getNextNode(isLast);
 
       const alphaExpr = `if(lt(t\\,${startTime + fadeTime})\\,(t-${startTime})/${fadeTime}\\,if(gt(t\\,${endTime - fadeTime})\\,(${endTime}-t)/${fadeTime}\\,1))`;
 
-      filters += `[${currentNode}]drawtext=text='${escapedQuote}':`;
+      const textPath = path.join(tmpDir, `quote_${Date.now()}_${Math.random().toString(36).substring(7)}.txt`);
+      fs.writeFileSync(textPath, '\ufeff' + quote, 'utf8');
+      if (tmpFiles) tmpFiles.push(textPath);
+      const escapedTextPath = textPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+
+      filters += `[${currentNode}]drawtext=textfile='${escapedTextPath}':`;
       filters += `fontsize=32:fontcolor=white:alpha='${alphaExpr}':`;
       filters += `x=(w-tw)/2:y=${quoteY}:`;
       filters += `box=1:boxcolor=black@0.45:boxborderw=12:`;
-      filters += `fontfile='C\\:/Windows/Fonts/consola.ttf':`;
+      filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf':`;
       filters += `enable='between(t\\,${startTime}\\,${endTime})'`;
       filters += `[${outNode}]; `;
       currentNode = outNode;
@@ -231,27 +234,65 @@ export function buildOverlayFilters(params, totalDuration, extraInputStartIndex)
     }
   }
 
-  // ======== NOW PLAYING ========
+  // ======== NOW PLAYING (PLAYLIST) ========
   if (showNowPlaying && nowPlayingSegments && nowPlayingSegments.length > 0) {
-    const fadeTime = 1.0;
-    
+    const startX = `(W*${playlistPosX || 5}/100)`;
+    const startY = `(H*${playlistPosY || 8}/100)`;
+    const pSize = parseInt(playlistFontSize) || 32;
+    const lineHeight = pSize + 8;
+    const itemsPerCol = parseInt(playlistItemsPerCol) || 15;
+    const colGap = parseInt(playlistColGap) || 400;
+
+    // Draw INACTIVE state for all songs first
     for (let i = 0; i < nowPlayingSegments.length; i++) {
       const seg = nowPlayingSegments[i];
-      const title = `🎵 ${seg.title}`;
-      const escapedTitle = escapeDrawtext(title);
+      const title = `${i + 1}. ${seg.title}`;
+      const outNode = getNextNode(false);
+      
+      const rowIndex = i % itemsPerCol;
+      const colIndex = Math.floor(i / itemsPerCol);
+      
+      const xPos = `(${startX} + (${colIndex} * ${colGap}))`;
+      const yPos = `(${startY} + (${rowIndex} * ${lineHeight}))`;
+      
+      const textPath = path.join(tmpDir, `title_inact_${Date.now()}_${Math.random().toString(36).substring(7)}.txt`);
+      fs.writeFileSync(textPath, '\ufeff' + title, 'utf8');
+      if (tmpFiles) tmpFiles.push(textPath);
+      const escapedTextPath = textPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+
+      filters += `[${currentNode}]drawtext=textfile='${escapedTextPath}':`;
+      filters += `fontsize=${pSize}:fontcolor=gray@0.6:`;
+      filters += `x=(${xPos} + ${Math.max(10, pSize*0.6)}):y=${yPos}:`; // slightly offset to the right to align with play icon
+      filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf'`;
+      filters += `[${outNode}]; `;
+      currentNode = outNode;
+    }
+
+    // Draw ACTIVE (Highlight) state for all songs
+    for (let i = 0; i < nowPlayingSegments.length; i++) {
+      const seg = nowPlayingSegments[i];
+      const title = `▶ ${i + 1}. ${seg.title}`;
       const isLast = enabledOverlays[enabledOverlays.length - 1] === 'nowplaying' && i === nowPlayingSegments.length - 1;
       const outNode = getNextNode(isLast);
       
+      const rowIndex = i % itemsPerCol;
+      const colIndex = Math.floor(i / itemsPerCol);
+      
       const startTime = seg.start;
       const endTime = seg.end;
+      const xPos = `(${startX} + (${colIndex} * ${colGap}))`;
+      const yPos = `(${startY} + (${rowIndex} * ${lineHeight}))`;
       
-      const alphaExpr = `if(lt(t\\,${startTime + fadeTime})\\,(t-${startTime})/${fadeTime}\\,if(gt(t\\,${endTime - fadeTime})\\,(${endTime}-t)/${fadeTime}\\,1))`;
-      
-      filters += `[${currentNode}]drawtext=text='${escapedTitle}':`;
-      filters += `fontsize=36:fontcolor=white:alpha='${alphaExpr}':`;
-      filters += `x=40:y=H-h-40:`;
-      filters += `box=1:boxcolor=black@0.6:boxborderw=10:`;
-      filters += `fontfile='C\\:/Windows/Fonts/consola.ttf':`;
+      const textPath = path.join(tmpDir, `title_act_${Date.now()}_${Math.random().toString(36).substring(7)}.txt`);
+      fs.writeFileSync(textPath, '\ufeff' + title, 'utf8');
+      if (tmpFiles) tmpFiles.push(textPath);
+      const escapedTextPath = textPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+
+      filters += `[${currentNode}]drawtext=textfile='${escapedTextPath}':`;
+      filters += `fontsize=${pSize}:fontcolor=white:`;
+      filters += `x=${xPos}:y=${yPos}:`;
+      filters += `box=1:boxcolor=0x845EC2@0.7:boxborderw=8:`;
+      filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf':`;
       filters += `enable='between(t\\,${startTime}\\,${endTime})'`;
       filters += `[${outNode}]; `;
       currentNode = outNode;
@@ -309,9 +350,12 @@ export const mixVideo = async (req, res) => {
 
     const { jobId, videoSpeed = 1.0, transitionDuration = 1.0, transitionTypes, keepOriginalAudio, targetDuration, resolution = '1280:720',
       // Overlay parameters
-      overlayTimerEnabled, overlayTimerMinutes, overlayTimerBreakMinutes, overlayTimerPosition, overlayTimerShowProgress, overlayTimerWithBreak,
+      overlayTimerEnabled, overlayTimerMode, overlayTimerMinutes, overlayTimerBreakMinutes, overlayTimerWithBreak,
+      timerPosX, timerPosY, timerFontSize, playlistPosX, playlistPosY, playlistFontSize,
+      playlistItemsPerCol, playlistColGap,
       overlayLogoEnabled, overlayLogoPosition, overlayLogoOpacity, overlayLogoSize,
-      overlayQuotesEnabled, overlayQuotesInterval, overlayQuotesDuration, overlayQuotesPosition, overlayQuotesCustom
+      overlayQuotesEnabled, overlayQuotesInterval, overlayQuotesDuration, overlayQuotesPosition, overlayQuotesCustom,
+      bgImageDuration, bgTransitionDuration
     } = req.body;
     const videoFiles = req.files['video'];
 
@@ -325,10 +369,17 @@ export const mixVideo = async (req, res) => {
     // Build overlay params object
     const overlayParams = {
       timerEnabled: overlayTimerEnabled === 'true',
+      timerMode: overlayTimerMode || 'pomodoro',
       timerMinutes: overlayTimerMinutes,
       timerBreakMinutes: overlayTimerBreakMinutes,
-      timerPosition: overlayTimerPosition || 'top-right',
-      timerShowProgress: overlayTimerShowProgress === 'true',
+      timerPosX: timerPosX,
+      timerPosY: timerPosY,
+      timerFontSize: timerFontSize,
+      playlistPosX: playlistPosX,
+      playlistPosY: playlistPosY,
+      playlistFontSize: playlistFontSize,
+      playlistItemsPerCol: playlistItemsPerCol,
+      playlistColGap: playlistColGap,
       timerWithBreak: overlayTimerWithBreak === 'true',
       logoEnabled: overlayLogoEnabled === 'true',
       logoPath: logoPath,
@@ -339,7 +390,7 @@ export const mixVideo = async (req, res) => {
       quotesInterval: overlayQuotesInterval || '10',
       quotesDuration: overlayQuotesDuration || '15',
       quotesPosition: overlayQuotesPosition || 'bottom',
-      customQuotes: overlayQuotesCustom || null,
+      customQuotes: overlayQuotesCustom ? Buffer.from(overlayQuotesCustom, 'latin1').toString('utf8') : null,
       showNowPlaying: req.body.showNowPlaying === 'true',
       nowPlayingSegments: []
     };
@@ -354,8 +405,9 @@ export const mixVideo = async (req, res) => {
       if (overlayParams.showNowPlaying) {
         if (jobId) progressMap.set(jobId, { progress: 0, status: 'Analyzing audio track...' });
         const dur = await probeAudioDuration(audioPath);
+        const originalName = file.originalname ? Buffer.from(file.originalname, 'latin1').toString('utf8') : 'Track 1';
         overlayParams.nowPlayingSegments.push({
-          title: file.originalname ? file.originalname.replace(/\.[^/.]+$/, "") : 'Track 1',
+          title: originalName.replace(/\.[^/.]+$/, ""),
           start: 0,
           end: dur
         });
@@ -381,8 +433,9 @@ export const mixVideo = async (req, res) => {
         
         if (overlayParams.showNowPlaying) {
           const dur = await probeAudioDuration(p);
-          overlayParams.nowPlayingSegments.push({
-             title: file.originalname ? file.originalname.replace(/\.[^/.]+$/, "") : `Track ${i+1}`,
+           const originalName = file.originalname ? Buffer.from(file.originalname, 'latin1').toString('utf8') : `Track ${i+1}`;
+           overlayParams.nowPlayingSegments.push({
+             title: originalName.replace(/\.[^/.]+$/, ""),
              start: currentAudioTime,
              end: currentAudioTime + dur
           });
@@ -418,17 +471,26 @@ export const mixVideo = async (req, res) => {
       progressMap.set(jobId, { progress: 2, status: 'Analyzing durations...' });
     }
 
-    const tDur = parseFloat(transitionDuration);
-    const speed = parseFloat(videoSpeed);
+    const tDur = parseFloat(bgTransitionDuration) || parseFloat(transitionDuration) || 1.0;
+    const speed = parseFloat(videoSpeed) || 1.0;
     const audioDuration = audioPath ? await probeAudioDuration(audioPath) : 0;
     const tTarget = parseFloat(targetDuration) || 0;
+    const imgDur = parseFloat(bgImageDuration) || 10;
 
     // 1. Get adjusted durations for the base uploaded videos
     const baseDurations = [];
     let baseSequenceDuration = 0;
     
-    for (const vPath of videoPaths) {
-      const originalDur = await getVideoDuration(vPath);
+    for (let i = 0; i < videoPaths.length; i++) {
+      const vFile = videoFiles[i];
+      const vPath = videoPaths[i];
+      const isImage = vFile.mimetype.startsWith('image/');
+      let originalDur;
+      if (isImage) {
+        originalDur = imgDur;
+      } else {
+        originalDur = await getVideoDuration(vPath);
+      }
       const adjustedDur = originalDur / speed;
       baseDurations.push(adjustedDur);
       baseSequenceDuration += adjustedDur;
@@ -474,13 +536,18 @@ export const mixVideo = async (req, res) => {
       }
 
       const ffmpegArgs = [];
-      if (audioPath || targetLength > 0) {
+      if (videoFiles[0].mimetype.startsWith('image/')) {
+        ffmpegArgs.push('-loop', '1');
+        if (targetLength > 0 || audioPath) {
+          ffmpegArgs.push('-t', (targetLength || audioDuration || 600).toString());
+        }
+      } else if (audioPath || targetLength > 0) {
         ffmpegArgs.push('-stream_loop', '-1', '-fflags', '+genpts');
       }
       ffmpegArgs.push('-i', finalVideoPaths[0]);
       
       if (audioPath) {
-        if (targetLength > 0) ffmpegArgs.push('-stream_loop', '-1');
+        if (targetLength > 0 && !videoFiles[0].mimetype.startsWith('image/')) ffmpegArgs.push('-stream_loop', '-1');
         ffmpegArgs.push('-vn', '-i', audioPath);
       }
 
@@ -495,7 +562,7 @@ export const mixVideo = async (req, res) => {
         filterComplex += `[0:v]scale=${resolution}:force_original_aspect_ratio=increase,crop=${resolution},setsar=1,fps=30,setpts=${ptsMultiplier}*PTS,format=yuv420p[vbase]; `;
         
         const effectiveDuration = targetLength || totalExpectedDuration || 600;
-        const overlay = buildOverlayFilters(overlayParams, effectiveDuration, inputCount);
+        const overlay = buildOverlayFilters(overlayParams, effectiveDuration, inputCount, tmpDir, tmpFiles);
         filterComplex += overlay.filters + ' ';
         // Add extra inputs (logo) to ffmpegArgs
         for (const arg of overlay.extraInputs) {
@@ -526,7 +593,7 @@ export const mixVideo = async (req, res) => {
       }
 
       const filterScriptPath = path.join(tmpDir, `filter-${tmpId}.txt`);
-      fs.writeFileSync(filterScriptPath, filterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''));
+      fs.writeFileSync(filterScriptPath, filterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''), 'utf8');
       tmpFiles.push(filterScriptPath);
 
       ffmpegArgs.push('-filter_complex_script', filterScriptPath);
@@ -562,8 +629,15 @@ export const mixVideo = async (req, res) => {
       }
 
       const pass1Args = [];
-      for (const vPath of finalVideoPaths) {
-        pass1Args.push('-i', vPath);
+      for (let i = 0; i < finalVideoPaths.length; i++) {
+        const vFile = videoFiles[i];
+        const vPath = finalVideoPaths[i];
+        const isImage = vFile.mimetype.startsWith('image/');
+        if (isImage) {
+           pass1Args.push('-loop', '1', '-t', (finalDurations[i] + 1).toString(), '-framerate', '30', '-i', vPath);
+        } else {
+           pass1Args.push('-i', vPath);
+        }
       }
 
       let filterComplex = '';
@@ -599,7 +673,7 @@ export const mixVideo = async (req, res) => {
       }
 
       const filterScriptPath = path.join(tmpDir, `filter-${tmpId}.txt`);
-      fs.writeFileSync(filterScriptPath, filterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''));
+      fs.writeFileSync(filterScriptPath, filterComplex.replace(/;\s*;/g, ';').trim().replace(/;$/, ''), 'utf8');
       tmpFiles.push(filterScriptPath);
 
       pass1Args.push(
@@ -635,7 +709,7 @@ export const mixVideo = async (req, res) => {
       if (hasAnyOverlay) {
         // Build overlay filter chain for Pass 2
         const effectiveDuration = targetLength || baseSequenceDuration || 600;
-        const overlay = buildOverlayFilters(overlayParams, effectiveDuration, pass2InputCount);
+        const overlay = buildOverlayFilters(overlayParams, effectiveDuration, pass2InputCount, tmpDir, tmpFiles);
         
         // Add extra inputs (logo file)
         for (const arg of overlay.extraInputs) {
@@ -648,7 +722,7 @@ export const mixVideo = async (req, res) => {
         }
         
         const pass2FilterScript = path.join(tmpDir, `filter2-${tmpId}.txt`);
-        fs.writeFileSync(pass2FilterScript, pass2Filter.trim().replace(/;$/, ''));
+        fs.writeFileSync(pass2FilterScript, pass2Filter.trim().replace(/;$/, ''), 'utf8');
         tmpFiles.push(pass2FilterScript);
         pass2Args.push('-filter_complex_script', pass2FilterScript);
         

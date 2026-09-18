@@ -9,9 +9,11 @@ import lyricsRoutes from './lyrics.routes.js';
 import typingRoutes from './typing.routes.js';
 import editorRoutes from './editor.routes.js';
 import videoMixerRoutes from './video-mixer.routes.js';
+import musicMixerRoutes from './music-mixer.routes.js';
 import typingHistoryRoutes from './typing-history.routes.js';
 import learningVideosRoutes from './learningVideos.routes.js';
 import youtubeRoutes from './youtube.routes.js';
+import tiktokRoutes from './tiktok.routes.js';
 
 const router = express.Router();
 
@@ -23,9 +25,11 @@ router.use('/search', searchRoutes);
 router.use('/lyrics', lyricsRoutes);
 router.use('/editor', editorRoutes);
 router.use('/video-mixer', videoMixerRoutes);
+router.use('/music-mixer', musicMixerRoutes);
 router.use('/typing-history', typingHistoryRoutes);
 router.use('/learning-videos', learningVideosRoutes);
 router.use('/youtube', youtubeRoutes);
+router.use('/tiktok', tiktokRoutes);
 
 // These routers define top-level /api endpoints (e.g. /api/download, /api/info, /api/typing-lessons)
 router.use('/', downloadRoutes);

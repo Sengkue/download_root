@@ -40,6 +40,13 @@
           color="red-accent-2"
         ></v-list-item>
         <v-list-item
+          to="/downloader/batch-mp3"
+          prepend-icon="mdi-music-box-multiple"
+          title="Batch MP3"
+          value="batch-mp3"
+          color="purple-accent-2"
+        ></v-list-item>
+        <v-list-item
           to="/downloader/stock"
           prepend-icon="mdi-magnify"
           title="Stock Search"

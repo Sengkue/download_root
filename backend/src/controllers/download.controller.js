@@ -119,7 +119,7 @@ export const downloadMedia = async (req, res) => {
       const tmpId = crypto.randomBytes(8).toString('hex');
       const tmpDir = os.tmpdir();
       const tmpBase = path.join(tmpDir, `yt-${tmpId}`);
-      const tmpTemplate = `${tmpBase}.%(ext)s`;
+      const tmpTemplate = `${tmpBase}_%(title)s.%(ext)s`;
 
       console.log(`[yt-dlp] Downloading ${type} to temp template: ${tmpTemplate}`);
       if (jobId) progressMap.set(jobId, { progress: 0, status: 'Starting download...' });
@@ -140,12 +140,14 @@ export const downloadMedia = async (req, res) => {
           audioQuality: 0,          // best quality
           noPlaylist: true,
           ffmpegLocation: `"${ffmpegPath}"`,
+          jsRuntimes: 'node',
           o: tmpTemplate,
         } : {
           f: quality ? `"bestvideo[height<=${quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=${quality}]+bestaudio/best"` : '"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"',
           mergeOutputFormat: 'mp4',
           noPlaylist: true,
           ffmpegLocation: `"${ffmpegPath}"`,
+          jsRuntimes: 'node',
           o: tmpTemplate,
         };
 
@@ -167,7 +169,7 @@ export const downloadMedia = async (req, res) => {
 
         const tmpDirFiles = fs.readdirSync(tmpDir);
         const outputFile = tmpDirFiles
-          .filter(f => f.startsWith(`yt-${tmpId}.`))
+          .filter(f => f.startsWith(`yt-${tmpId}_`))
           .map(f => path.join(tmpDir, f))
           .find(f => fs.statSync(f).isFile());
 
@@ -176,9 +178,17 @@ export const downloadMedia = async (req, res) => {
         }
 
         console.log(`[yt-dlp] Output file found: ${outputFile}`);
+        
+        let actualFilename = `youtube-${type}.${ext}`;
+        const parsedPath = path.parse(outputFile);
+        const prefixLength = `yt-${tmpId}_`.length;
+        if (parsedPath.name.length > prefixLength) {
+           actualFilename = `${parsedPath.name.substring(prefixLength)}${parsedPath.ext}`;
+        }
+        
         const stat = fs.statSync(outputFile);
 
-        res.setHeader('Content-Disposition', `attachment; filename="youtube-${type}.${ext}"`);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(actualFilename)}`);
         res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
         res.setHeader('Content-Length', stat.size.toString());
         res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length');
@@ -197,10 +207,14 @@ export const downloadMedia = async (req, res) => {
       } catch (ytError) {
         if (jobId) progressMap.delete(jobId);
         const tmpDirFiles2 = fs.readdirSync(tmpDir);
-        tmpDirFiles2.filter(f => f.startsWith(`yt-${tmpId}.`)).forEach(f => {
+        tmpDirFiles2.filter(f => f.startsWith(`yt-${tmpId}_`)).forEach(f => {
           try { fs.unlinkSync(path.join(tmpDir, f)); } catch (_) {}
         });
-        console.error('yt-dlp error:', ytError.message || ytError);
+        
+        // Log the full error to see stderr
+        console.error('yt-dlp error full:', ytError);
+        console.error('yt-dlp stderr:', ytError.stderr || ytError.message);
+        
         if (!res.headersSent) {
           return res.status(500).json({ error: 'Failed to download. Please check the URL or try again later.' });
         }
