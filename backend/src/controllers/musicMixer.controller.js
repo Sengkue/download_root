@@ -408,10 +408,12 @@ export const mixVideo = async (req, res) => {
     const hasAnyOverlay = overlayParams.timerEnabled || (overlayParams.logoEnabled && logoPath) || overlayParams.quotesEnabled || overlayParams.showNowPlaying;
     
     let audioPath = null;
+    let exactAudioDuration = 0;
     if (req.files['audio'] && req.files['audio'].length === 1) {
       const file = req.files['audio'][0];
       audioPath = path.resolve(file.path);
       tmpFiles.push(audioPath);
+      exactAudioDuration = await probeAudioDuration(audioPath);
       
       if (overlayParams.showNowPlaying) {
         if (jobId) progressMap.set(jobId, { progress: 0, status: 'Analyzing audio track...' });
@@ -442,17 +444,19 @@ export const mixVideo = async (req, res) => {
         filterComplex += `[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a${i}];`;
         concatInputs += `[a${i}]`;
         
+        const dur = await probeAudioDuration(p);
+        
         if (overlayParams.showNowPlaying) {
-          const dur = await probeAudioDuration(p);
            const originalName = file.originalname ? Buffer.from(file.originalname, 'latin1').toString('utf8') : `Track ${i+1}`;
            overlayParams.nowPlayingSegments.push({
              title: originalName.replace(/\.[^/.]+$/, ""),
              start: currentAudioTime,
              end: currentAudioTime + dur
           });
-          currentAudioTime += dur;
         }
+        currentAudioTime += dur;
       }
+      exactAudioDuration = currentAudioTime;
       filterComplex += `${concatInputs}concat=n=${req.files['audio'].length}:v=0:a=1[aout]`;
       
       audioArgs.push(
@@ -484,7 +488,7 @@ export const mixVideo = async (req, res) => {
 
     const tDur = parseFloat(bgTransitionDuration) || parseFloat(transitionDuration) || 1.0;
     const speed = parseFloat(videoSpeed) || 1.0;
-    const audioDuration = audioPath ? await probeAudioDuration(audioPath) : 0;
+    const audioDuration = exactAudioDuration;
     const tTarget = parseFloat(targetDuration) || 0;
     const imgDur = parseFloat(bgImageDuration) || 10;
 
