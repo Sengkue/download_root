@@ -261,8 +261,9 @@ export function buildOverlayFilters(params, totalDuration, extraInputStartIndex,
       const escapedTextPath = textPath.replace(/\\/g, '/').replace(/:/g, '\\:');
 
       filters += `[${currentNode}]drawtext=textfile='${escapedTextPath}':`;
-      filters += `fontsize=${pSize}:fontcolor=gray@0.6:`;
-      filters += `x=(${xPos} + ${Math.max(10, pSize*0.6)}):y=${yPos}:`; // slightly offset to the right to align with play icon
+      filters += `fontsize=${pSize}:fontcolor=white:borderw=2:bordercolor=black@0.6:`;
+      const textOffset = Math.max(20, pSize * 0.9);
+      filters += `x=(${xPos} + ${textOffset}):y=${yPos}:`;
       filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf'`;
       filters += `[${outNode}]; `;
       currentNode = outNode;
@@ -271,7 +272,7 @@ export function buildOverlayFilters(params, totalDuration, extraInputStartIndex,
     // Draw ACTIVE (Highlight) state for all songs
     for (let i = 0; i < nowPlayingSegments.length; i++) {
       const seg = nowPlayingSegments[i];
-      const title = `▶ ${i + 1}. ${seg.title}`;
+      const title = `${i + 1}. ${seg.title}`;
       const isLast = enabledOverlays[enabledOverlays.length - 1] === 'nowplaying' && i === nowPlayingSegments.length - 1;
       const outNode = getNextNode(isLast);
       
@@ -288,9 +289,19 @@ export function buildOverlayFilters(params, totalDuration, extraInputStartIndex,
       if (tmpFiles) tmpFiles.push(textPath);
       const escapedTextPath = textPath.replace(/\\/g, '/').replace(/:/g, '\\:');
 
-      filters += `[${currentNode}]drawtext=textfile='${escapedTextPath}':`;
+      const iconNode = getNextNode(false);
+      filters += `[${currentNode}]drawtext=text='▶':`;
       filters += `fontsize=${pSize}:fontcolor=white:`;
       filters += `x=${xPos}:y=${yPos}:`;
+      filters += `fontfile='C\\:/Windows/Fonts/seguisym.ttf':`;
+      filters += `enable='between(t\\,${startTime}\\,${endTime})'`;
+      filters += `[${iconNode}]; `;
+      currentNode = iconNode;
+
+      const textOffset = Math.max(20, pSize * 0.9);
+      filters += `[${currentNode}]drawtext=textfile='${escapedTextPath}':`;
+      filters += `fontsize=${pSize}:fontcolor=white:`;
+      filters += `x=(${xPos} + ${textOffset}):y=${yPos}:`;
       filters += `box=1:boxcolor=0x845EC2@0.7:boxborderw=8:`;
       filters += `fontfile='C\\:/Windows/Fonts/LeelawUI.ttf':`;
       filters += `enable='between(t\\,${startTime}\\,${endTime})'`;

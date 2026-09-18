@@ -1047,21 +1047,27 @@ onUnmounted(() => {
   row-gap: 8px;
 }
 .playlist-item {
-  color: rgba(255, 255, 255, 0.6);
+  color: white;
   font-weight: bold;
   font-family: 'Courier New', Courier, monospace;
-  text-shadow: 1px 1px 2px black;
+  text-shadow: 
+    -2px -2px 0 rgba(0,0,0,0.6),
+     2px -2px 0 rgba(0,0,0,0.6),
+    -2px  2px 0 rgba(0,0,0,0.6),
+     2px  2px 0 rgba(0,0,0,0.6);
   display: flex;
   align-items: center;
 }
 .playlist-item .icon {
-  width: 1.2em;
+  width: 1.5em;
   display: inline-block;
+  font-family: 'Segoe UI Symbol', Arial, sans-serif;
+  text-shadow: none;
 }
 .playlist-item.active {
   color: white;
   background: rgba(132, 94, 194, 0.7);
-  padding: 4px 12px 4px 4px;
+  padding: 4px 8px;
   border-radius: 4px;
   border: 1px solid rgba(255,255,255,0.2);
 }
