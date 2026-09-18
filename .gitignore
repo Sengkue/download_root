@@ -28,6 +28,7 @@ backend/uploads/
 uploads/
 
 # OS/Editor Files
+
 .DS_Store
 Thumbs.db
 .vscode/
@@ -37,3 +38,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary files
+tmp/
