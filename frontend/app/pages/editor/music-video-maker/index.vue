@@ -71,55 +71,115 @@
     <div class="studio-body">
       <!-- 1. Active Editor View -->
       <div v-if="!videoUrl" class="editor-grid">
-        <!-- LEFT: Inspector & Settings Panel -->
-        <aside class="inspector-panel glass-panel">
-          <!-- Segmented Navigation Tabs -->
-          <v-tabs
-            v-model="activeTab"
-            density="compact"
-            color="purple-accent-2"
-            align-tabs="center"
-            class="inspector-tabs mb-4"
-          >
-            <v-tab value="media" class="text-none font-weight-bold">
-              <v-icon start icon="mdi-folder-music-outline" size="18"></v-icon>
-              Media
-            </v-tab>
-            <v-tab value="timeline" class="text-none font-weight-bold">
-              <v-icon start icon="mdi-chart-timeline-variant-shimmer" size="18"></v-icon>
-              Timeline & Cut
-            </v-tab>
-            <v-tab value="overlays" class="text-none font-weight-bold">
-              <v-icon start icon="mdi-layers-outline" size="18"></v-icon>
-              Overlays & Style
-            </v-tab>
-            <v-tab value="settings" class="text-none font-weight-bold">
-              <v-icon start icon="mdi-cog-outline" size="18"></v-icon>
-              Format
-            </v-tab>
-          </v-tabs>
+        <!-- LEFT: Inspector & Settings Panel with Smooth Scrolling and Sticky Header -->
+        <aside class="inspector-panel glass-panel" ref="inspectorPanelRef" @scroll="onInspectorScroll">
+          <!-- Sticky Segmented Navigation Header -->
+          <div class="inspector-sticky-header">
+            <v-tabs
+              v-model="activeTab"
+              density="compact"
+              color="purple-accent-2"
+              align-tabs="center"
+              class="inspector-tabs"
+            >
+              <v-tab value="media" class="text-none font-weight-bold">
+                <v-icon start icon="mdi-folder-music-outline" size="18"></v-icon>
+                Media
+              </v-tab>
+              <v-tab value="timeline" class="text-none font-weight-bold">
+                <v-icon start icon="mdi-chart-timeline-variant-shimmer" size="18"></v-icon>
+                Timeline & Cut
+              </v-tab>
+              <v-tab value="overlays" class="text-none font-weight-bold">
+                <v-icon start icon="mdi-layers-outline" size="18"></v-icon>
+                Overlays & Style
+              </v-tab>
+              <v-tab value="settings" class="text-none font-weight-bold">
+                <v-icon start icon="mdi-cog-outline" size="18"></v-icon>
+                Format
+              </v-tab>
+            </v-tabs>
+
+            <!-- Quick Jump / Sub Navigation (Visible when on Media tab) -->
+            <div v-if="activeTab === 'media'" class="media-quick-nav d-flex align-center justify-space-between mt-2 pt-2 border-top-subtle">
+              <div class="d-flex align-center gap-1">
+                <v-chip
+                  size="x-small"
+                  :color="isNearAudioSection ? 'grey-darken-3' : 'purple-accent-2'"
+                  :variant="isNearAudioSection ? 'tonal' : 'flat'"
+                  class="cursor-pointer font-weight-bold"
+                  @click="scrollToMediaSection('visuals')"
+                >
+                  <v-icon start icon="mdi-image-multiple" size="13"></v-icon>
+                  Visuals ({{ videoFiles.length }})
+                </v-chip>
+                <v-chip
+                  size="x-small"
+                  :color="isNearAudioSection ? 'purple-accent-2' : 'grey-darken-3'"
+                  :variant="isNearAudioSection ? 'flat' : 'tonal'"
+                  class="cursor-pointer font-weight-bold"
+                  @click="scrollToMediaSection('audio')"
+                >
+                  <v-icon start icon="mdi-playlist-music" size="13"></v-icon>
+                  Audio Playlist ({{ audioFiles.length }})
+                </v-chip>
+              </div>
+
+              <!-- Instant Scroll Up / Down button -->
+              <v-btn
+                size="x-small"
+                variant="tonal"
+                color="purple-accent-2"
+                class="text-none font-weight-bold px-2"
+                @click="toggleMediaScroll"
+                :title="isNearAudioSection ? 'Scroll Up to Visuals' : 'Scroll Down to Audio Playlist'"
+              >
+                <v-icon :icon="isNearAudioSection ? 'mdi-arrow-up' : 'mdi-arrow-down'" size="13" class="mr-1"></v-icon>
+                {{ isNearAudioSection ? 'Top ↑' : 'Audio ↓' }}
+              </v-btn>
+            </div>
+          </div>
 
           <v-window v-model="activeTab" class="inspector-window">
             <!-- TAB 1: MEDIA TRACKS -->
             <v-window-item value="media" class="tab-content">
               <!-- Visuals Section -->
-              <div class="section-card mb-4">
+              <div class="section-card mb-4" id="visuals-section">
                 <div class="d-flex align-center justify-space-between mb-2">
-                  <span class="text-subtitle-2 font-weight-bold d-flex align-center">
+                  <span
+                    class="text-subtitle-2 font-weight-bold d-flex align-center cursor-pointer"
+                    @click="isVisualsCollapsed = !isVisualsCollapsed"
+                    title="Click to collapse / expand Background Visuals"
+                  >
                     <v-icon icon="mdi-image-multiple" color="purple-lighten-2" class="mr-2" size="18"></v-icon>
                     Background Visuals
                     <v-badge v-if="videoFiles.length > 0" :content="videoFiles.length" color="purple" inline class="ml-2"></v-badge>
                   </span>
-                  <v-btn
-                    v-if="videoFiles.length > 0"
-                    size="x-small"
-                    variant="text"
-                    color="error"
-                    @click="clearVideo"
-                  >
-                    Clear All
-                  </v-btn>
+                  <div class="d-flex align-center gap-1">
+                    <v-btn
+                      v-if="videoFiles.length > 0"
+                      size="x-small"
+                      variant="text"
+                      color="error"
+                      @click="clearVideo"
+                    >
+                      Clear All
+                    </v-btn>
+                    <v-btn
+                      icon
+                      size="x-small"
+                      variant="text"
+                      color="grey-lighten-1"
+                      @click="isVisualsCollapsed = !isVisualsCollapsed"
+                      :title="isVisualsCollapsed ? 'Expand Background Visuals' : 'Collapse Background Visuals'"
+                    >
+                      <v-icon :icon="isVisualsCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'" size="18"></v-icon>
+                    </v-btn>
+                  </div>
                 </div>
+
+                <v-expand-transition>
+                  <div v-show="!isVisualsCollapsed">
 
                 <!-- Visuals Dropzone -->
                 <div
@@ -436,15 +496,22 @@
                     </div>
                   </div>
                 </div>
+              </v-expand-transition>
+            </div>
 
-              <!-- Audio Playlist Section -->
-              <div class="section-card">
-                <div class="d-flex align-center justify-space-between mb-2">
-                  <span class="text-subtitle-2 font-weight-bold d-flex align-center">
-                    <v-icon icon="mdi-playlist-music" color="purple-accent-2" class="mr-2" size="20"></v-icon>
-                    Audio Playlist
-                    <v-badge v-if="audioFiles.length > 0" :content="audioFiles.length" color="purple" inline class="ml-2"></v-badge>
-                  </span>
+            <!-- Audio Playlist Section -->
+            <div class="section-card" id="audio-playlist-section">
+              <div class="d-flex align-center justify-space-between mb-2">
+                <span
+                  class="text-subtitle-2 font-weight-bold d-flex align-center cursor-pointer"
+                  @click="isAudioCollapsed = !isAudioCollapsed"
+                  title="Click to collapse / expand Audio Playlist"
+                >
+                  <v-icon icon="mdi-playlist-music" color="purple-accent-2" class="mr-2" size="20"></v-icon>
+                  Audio Playlist
+                  <v-badge v-if="audioFiles.length > 0" :content="audioFiles.length" color="purple" inline class="ml-2"></v-badge>
+                </span>
+                <div class="d-flex align-center gap-1">
                   <v-btn
                     v-if="audioFiles.length > 0"
                     size="x-small"
@@ -454,7 +521,21 @@
                   >
                     Clear All
                   </v-btn>
+                  <v-btn
+                    icon
+                    size="x-small"
+                    variant="text"
+                    color="grey-lighten-1"
+                    @click="isAudioCollapsed = !isAudioCollapsed"
+                    :title="isAudioCollapsed ? 'Expand Audio Playlist' : 'Collapse Audio Playlist'"
+                  >
+                    <v-icon :icon="isAudioCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'" size="18"></v-icon>
+                  </v-btn>
                 </div>
+              </div>
+
+              <v-expand-transition>
+                <div v-show="!isAudioCollapsed">
 
                 <!-- Audio Dropzone -->
                 <div
@@ -626,7 +707,9 @@
                   </div>
                 </div>
               </div>
-            </v-window-item>
+            </v-expand-transition>
+          </div>
+        </v-window-item>
 
             <!-- TAB: TIMELINE & CUT CUSTOMIZER -->
             <v-window-item value="timeline" class="tab-content">
@@ -1714,8 +1797,8 @@
                         </div>
                       </div>
                     </template>
-                    <div v-else class="empty-track-placeholder d-flex align-center px-3 text-caption text-grey">
-                      <v-icon icon="mdi-plus" size="14" class="mr-1"></v-icon> No background media (Add in Media tab)
+                    <div v-else class="empty-track-placeholder d-flex align-center px-3 text-caption text-grey cursor-pointer" @click="activeTab = 'media'; scrollToMediaSection('visuals');" title="Click to upload background visuals in Media tab">
+                      <v-icon icon="mdi-plus" size="14" class="mr-1"></v-icon> No background media (Click to add in Media tab)
                     </div>
                   </div>
                 </div>
@@ -1786,8 +1869,8 @@
                         </div>
                       </div>
                     </template>
-                    <div v-else class="empty-track-placeholder d-flex align-center px-3 text-caption text-grey">
-                      <v-icon icon="mdi-plus" size="14" class="mr-1"></v-icon> No audio tracks added yet (Add in Media tab)
+                    <div v-else class="empty-track-placeholder d-flex align-center px-3 text-caption text-grey cursor-pointer" @click="activeTab = 'media'; scrollToMediaSection('audio');" title="Click to upload songs in Audio Playlist">
+                      <v-icon icon="mdi-plus" size="14" class="mr-1"></v-icon> No audio tracks added yet (Click to add in Audio Playlist)
                     </div>
                   </div>
                 </div>
@@ -2033,6 +2116,44 @@ const isDraggingVideo = ref(false);
 const isDraggingAudio = ref(false);
 const showSafeGuides = ref(false);
 const aspectRatioMode = ref("16:9");
+
+// Layout & Inspector Scroll State
+const inspectorPanelRef = ref(null);
+const isVisualsCollapsed = ref(false);
+const isAudioCollapsed = ref(false);
+const isNearAudioSection = ref(false);
+
+function onInspectorScroll(e) {
+  const el = e?.target || inspectorPanelRef.value;
+  if (!el) return;
+  isNearAudioSection.value = el.scrollTop > 140;
+}
+
+function scrollToMediaSection(section) {
+  if (!inspectorPanelRef.value) return;
+  if (section === 'audio') {
+    isAudioCollapsed.value = false;
+    setTimeout(() => {
+      const audioEl = inspectorPanelRef.value?.querySelector('#audio-playlist-section');
+      if (audioEl) {
+        audioEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        inspectorPanelRef.value?.scrollTo({ top: inspectorPanelRef.value.scrollHeight, behavior: 'smooth' });
+      }
+    }, 50);
+  } else {
+    isVisualsCollapsed.value = false;
+    inspectorPanelRef.value.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function toggleMediaScroll() {
+  if (isNearAudioSection.value) {
+    scrollToMediaSection('visuals');
+  } else {
+    scrollToMediaSection('audio');
+  }
+}
 
 // Inputs & DOM refs
 const videoInput = ref(null);
@@ -2521,7 +2642,24 @@ const handleVideoFiles = (files) => {
 
 const onDropVideo = (e) => {
   isDraggingVideo.value = false;
-  handleVideoFiles(Array.from(e.dataTransfer?.files || []));
+  const dropped = Array.from(e.dataTransfer?.files || []);
+  const visualFiles = dropped.filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+  const audioFilesList = dropped.filter((f) => f.type.startsWith("audio/"));
+
+  if (visualFiles.length > 0) {
+    handleVideoFiles(visualFiles);
+  }
+  if (audioFilesList.length > 0) {
+    handleAudioFiles(audioFilesList);
+    snackbar.value = {
+      show: true,
+      color: "info",
+      icon: "mdi-playlist-music",
+      title: "Audio Auto-Routed",
+      message: `Detected and added ${audioFilesList.length} song(s) to Audio Playlist.`,
+      timeout: 3500,
+    };
+  }
 };
 
 const onSelectVideo = (e) => {
@@ -2562,12 +2700,31 @@ const handleAudioFiles = (files) => {
       });
     });
     syncLegacyRefs();
+    isAudioCollapsed.value = false;
+    scrollToMediaSection('audio');
   }
 };
 
 const onDropAudio = (e) => {
   isDraggingAudio.value = false;
-  handleAudioFiles(Array.from(e.dataTransfer?.files || []));
+  const dropped = Array.from(e.dataTransfer?.files || []);
+  const audioFilesList = dropped.filter((f) => f.type.startsWith("audio/"));
+  const visualFiles = dropped.filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+
+  if (audioFilesList.length > 0) {
+    handleAudioFiles(audioFilesList);
+  }
+  if (visualFiles.length > 0) {
+    handleVideoFiles(visualFiles);
+    snackbar.value = {
+      show: true,
+      color: "info",
+      icon: "mdi-image-multiple",
+      title: "Visuals Auto-Routed",
+      message: `Detected and added ${visualFiles.length} visual(s) to Background Visuals.`,
+      timeout: 3500,
+    };
+  }
 };
 
 const onSelectAudio = (e) => {
@@ -3658,14 +3815,17 @@ onUnmounted(() => {
 <style scoped>
 /* Studio Container Layout */
 .studio-root {
-  min-height: calc(100vh - 64px);
+  height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
   background-color: #0b0f19;
   font-family: inherit;
+  overflow: hidden;
 }
 
 .studio-header {
+  flex-shrink: 0;
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -3695,6 +3855,8 @@ onUnmounted(() => {
 
 .studio-body {
   flex: 1;
+  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -3702,15 +3864,20 @@ onUnmounted(() => {
 
 /* 2-Column Responsive Studio Grid */
 .editor-grid {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   display: grid;
   grid-template-columns: 420px 1fr;
-  height: calc(100vh - 128px);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
 @media (max-width: 1080px) {
   .editor-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
     height: auto;
     overflow-y: auto;
   }
@@ -3729,12 +3896,67 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  overflow-y: auto;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.7) rgba(255, 255, 255, 0.04);
+}
+
+/* Custom sleek gradient scrollbar so the user clearly sees they can scroll up and down */
+.inspector-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.inspector-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.inspector-panel::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #a855f7 0%, #ec4899 100%);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.inspector-panel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #c084fc 0%, #f43f5e 100%);
+}
+
+/* Sticky top navigation header in Inspector */
+.inspector-sticky-header {
+  position: sticky;
+  top: -16px;
+  z-index: 25;
+  background: rgba(11, 15, 25, 0.96);
+  backdrop-filter: blur(16px);
+  margin: -16px -16px 12px -16px;
+  padding: 12px 16px 8px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.media-quick-nav {
+  user-select: none;
+}
+
+.border-top-subtle {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .inspector-tabs :deep(.v-tab) {
   border-radius: 8px;
   font-size: 12px;
+}
+
+.inspector-window {
+  min-height: 0;
+}
+
+.tab-content {
+  padding-bottom: 70px;
 }
 
 .section-card {
@@ -3775,8 +3997,28 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.5) rgba(255, 255, 255, 0.03);
+}
+
+.asset-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.asset-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+
+.asset-list::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.6);
+  border-radius: 3px;
+}
+
+.asset-list::-webkit-scrollbar-thumb:hover {
+  background: #c084fc;
 }
 
 .asset-card {
@@ -3882,6 +4124,9 @@ onUnmounted(() => {
   background: #070a12;
   position: relative;
   overflow: hidden;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
 }
 
 .viewport-toolbar {
@@ -4339,8 +4584,16 @@ onUnmounted(() => {
 .empty-track-placeholder {
   width: 100%;
   height: 100%;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.empty-track-placeholder:hover {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.5);
+  color: #e9d5ff !important;
 }
 
 /* Clip Blocks */

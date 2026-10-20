@@ -83,6 +83,42 @@
             </v-btn>
           </v-card>
         </v-col>
+
+        <!-- Suno Song Studio Card -->
+        <v-col cols="12" md="12">
+          <v-card
+            class="hub-card pa-6 rounded-xl h-100 d-flex flex-column"
+            elevation="10"
+            to="/editor/song-generator"
+            style="border: 1px solid rgba(245, 158, 11, 0.35); background: linear-gradient(135deg, rgba(30, 27, 75, 0.7), rgba(15, 23, 42, 0.7));"
+          >
+            <div class="d-flex align-center mb-4">
+              <div class="icon-avatar mr-4" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+                <v-icon size="32" color="white">mdi-music-clef-treble</v-icon>
+              </div>
+              <div>
+                <h2 class="text-h5 font-weight-bold text-white mb-1">Suno Song Studio</h2>
+                <span class="badge-tag" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: bold;">AI Lao & Suno Music Generator</span>
+              </div>
+            </div>
+
+            <p class="text-grey-lighten-2 flex-grow-1 mb-6 text-body-1">
+              Create complete original Lao songs and background soundtracks using local Suno AI integration and Gemini Lao lyrics generator. Audition playback and download MP3s directly.
+            </p>
+
+            <v-btn
+              color="amber-accent-3"
+              variant="flat"
+              rounded="lg"
+              size="large"
+              block
+              append-icon="mdi-arrow-right"
+              class="font-weight-bold text-none text-black"
+            >
+              Open Suno Song Studio
+            </v-btn>
+          </v-card>
+        </v-col>
       </v-row>
     </div>
   </v-container>

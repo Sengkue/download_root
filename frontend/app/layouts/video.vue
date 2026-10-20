@@ -59,6 +59,16 @@
           color="primary"
           class="nav-item mb-1"
         ></v-list-item>
+
+        <v-list-item 
+          to="/editor/song-generator" 
+          prepend-icon="mdi-music-clef-treble" 
+          title="Suno Song Studio" 
+          subtitle="AI Lao Music Generator"
+          rounded="lg"
+          color="amber-accent-2"
+          class="nav-item mb-1"
+        ></v-list-item>
       </v-list>
     </v-navigation-drawer>
 
