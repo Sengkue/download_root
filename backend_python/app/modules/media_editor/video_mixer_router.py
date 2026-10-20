@@ -4,8 +4,9 @@ import uuid
 import tempfile
 import json
 import random
+import traceback
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -21,26 +22,42 @@ from app.modules.media_editor.overlays import build_overlay_filters
 router = APIRouter(prefix="/video-mixer", tags=["Video Mixer"])
 
 class CancelRequest(BaseModel):
-    jobId: str
+    jobId: str = None
 
 @router.post("/cancel")
-def cancel_mixer_job(data: CancelRequest):
-    if not data.jobId:
-        raise HTTPException(status_code=400, detail="jobId is required")
-    cancel_job(data.jobId)
-    return {"success": True, "message": "Job cancelled"}
-
-def cleanup_files(file_paths: list[str], job_id: str = None):
-    if job_id and job_id in progress_map:
-        progress_map.pop(job_id, None)
-    for p in file_paths:
+async def cancel_mixer_job(request: Request, data: CancelRequest = None, jobId: str = Query(None)):
+    jid = data.jobId if (data and data.jobId) else jobId
+    if not jid:
         try:
-            if os.path.exists(p):
-                os.remove(p)
+            body = await request.json()
+            jid = body.get("jobId")
+        except Exception:
+            pass
+    if not jid:
+        try:
+            form = await request.form()
+            jid = form.get("jobId")
         except Exception:
             pass
 
+    if not jid:
+        raise HTTPException(status_code=400, detail="jobId is required")
+    cancel_job(jid)
+    return {"success": True, "message": "Job cancelled"}
+
+def cleanup_files(file_paths: list[str] = None, job_id: str = None):
+    if job_id and job_id in progress_map:
+        progress_map.pop(job_id, None)
+    if file_paths:
+        for p in file_paths:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+
 @router.post("")
+@router.post("/")
 async def mix_video(
     background_tasks: BackgroundTasks,
     video: list[UploadFile] = File(...),
@@ -54,11 +71,15 @@ async def mix_video(
     targetDuration: float = Form(0.0),
     resolution: str = Form("1280:720"),
     overlayTimerEnabled: str = Form("false"),
+    overlayTimerMode: str = Form("pomodoro"),
     overlayTimerMinutes: str = Form("25"),
     overlayTimerBreakMinutes: str = Form("5"),
     overlayTimerPosition: str = Form("top-right"),
     overlayTimerShowProgress: str = Form("false"),
     overlayTimerWithBreak: str = Form("false"),
+    timerPosX: str = Form(None),
+    timerPosY: str = Form(None),
+    timerFontSize: str = Form(None),
     overlayLogoEnabled: str = Form("false"),
     overlayLogoPosition: str = Form("bottom-right"),
     overlayLogoOpacity: str = Form("0.7"),
@@ -68,7 +89,13 @@ async def mix_video(
     overlayQuotesDuration: str = Form("15"),
     overlayQuotesPosition: str = Form("bottom"),
     overlayQuotesCustom: str = Form(None),
-    showNowPlaying: str = Form("false")
+    overlayCustomQuotes: str = Form(None),
+    showNowPlaying: str = Form("false"),
+    playlistPosX: str = Form(None),
+    playlistPosY: str = Form(None),
+    playlistFontSize: str = Form(None),
+    playlistItemsPerCol: str = Form(None),
+    playlistColGap: str = Form(None)
 ):
     if not video:
         raise HTTPException(status_code=400, detail="Video file is required")
@@ -89,13 +116,20 @@ async def mix_video(
             tmp_files.append(logo_path)
 
         now_playing_segments = []
+        quotes_input = overlayQuotesCustom or overlayCustomQuotes
+
         overlay_params = {
+            "resolution": resolution,
             "timerEnabled": overlayTimerEnabled == "true",
+            "timerMode": overlayTimerMode or "pomodoro",
             "timerMinutes": overlayTimerMinutes,
             "timerBreakMinutes": overlayTimerBreakMinutes,
             "timerPosition": overlayTimerPosition,
             "timerShowProgress": overlayTimerShowProgress == "true",
             "timerWithBreak": overlayTimerWithBreak == "true",
+            "timerPosX": timerPosX,
+            "timerPosY": timerPosY,
+            "timerFontSize": timerFontSize,
             "logoEnabled": overlayLogoEnabled == "true",
             "logoPath": logo_path,
             "logoPosition": overlayLogoPosition,
@@ -105,9 +139,14 @@ async def mix_video(
             "quotesInterval": overlayQuotesInterval,
             "quotesDuration": overlayQuotesDuration,
             "quotesPosition": overlayQuotesPosition,
-            "customQuotes": overlayQuotesCustom,
+            "customQuotes": quotes_input,
             "showNowPlaying": showNowPlaying == "true",
-            "nowPlayingSegments": now_playing_segments
+            "nowPlayingSegments": now_playing_segments,
+            "playlistPosX": playlistPosX,
+            "playlistPosY": playlistPosY,
+            "playlistFontSize": playlistFontSize,
+            "playlistItemsPerCol": playlistItemsPerCol,
+            "playlistColGap": playlistColGap
         }
         has_any_overlay = (
             overlay_params["timerEnabled"] or
@@ -118,6 +157,7 @@ async def mix_video(
 
         # Save audio
         audio_path = None
+        exact_audio_duration = 0.0
         if audio and len(audio) == 1 and audio[0].filename:
             file = audio[0]
             a_suffix = Path(file.filename).suffix or ".mp3"
@@ -125,15 +165,16 @@ async def mix_video(
             with open(audio_path, "wb") as buf:
                 shutil.copyfileobj(file.file, buf)
             tmp_files.append(audio_path)
+            exact_audio_duration = await probe_audio_duration(audio_path)
 
             if overlay_params["showNowPlaying"]:
                 if jobId:
                     progress_map[jobId] = {"progress": 0, "status": "Analyzing audio track..."}
-                dur = await probe_audio_duration(audio_path)
+                track_title = Path(file.filename).stem if file.filename else "Track 1"
                 now_playing_segments.append({
-                    "title": Path(file.filename).stem if file.filename else "Track 1",
+                    "title": track_title,
                     "start": 0.0,
-                    "end": dur
+                    "end": exact_audio_duration
                 })
         elif audio and len(audio) > 1:
             if jobId:
@@ -157,15 +198,17 @@ async def mix_video(
                 filter_complex += f"[{i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a{i}];"
                 concat_inputs += f"[a{i}]"
 
+                dur = await probe_audio_duration(p)
                 if overlay_params["showNowPlaying"]:
-                    dur = await probe_audio_duration(p)
+                    track_title = Path(f.filename).stem if f.filename else f"Track {i+1}"
                     now_playing_segments.append({
-                        "title": Path(f.filename).stem if f.filename else f"Track {i+1}",
+                        "title": track_title,
                         "start": current_time,
                         "end": current_time + dur
                     })
-                    current_time += dur
+                current_time += dur
 
+            exact_audio_duration = current_time
             filter_complex += f"{concat_inputs}concat=n={len(audio)}:v=0:a=1[aout]"
             audio_args.extend([
                 "-filter_complex", filter_complex,
@@ -189,9 +232,9 @@ async def mix_video(
         if jobId:
             progress_map[jobId] = {"progress": 2, "status": "Analyzing durations..."}
 
-        speed = float(videoSpeed)
+        speed = float(videoSpeed) if videoSpeed > 0 else 1.0
         t_dur = float(transitionDuration)
-        audio_dur = await probe_audio_duration(audio_path) if audio_path else 0.0
+        audio_dur = exact_audio_duration
 
         base_durations = []
         base_sequence_dur = 0.0
@@ -228,16 +271,16 @@ async def mix_video(
         pts_multiplier = 1 / speed if speed > 0 else 1.0
         keep_audio = (keepOriginalAudio == "true")
 
-        # ─── Single Video ───
+        # ─── Single Video (One-Pass) ───
         if len(video_paths) == 1:
             if jobId:
-                progress_map[jobId] = {"progress": 5, "status": "Building filter graph..."}
+                progress_map[jobId] = {"progress": 10, "status": "Processing single video..."}
 
-            ffmpeg_args = []
-            if audio_path or target_length > 0:
-                ffmpeg_args.extend(["-stream_loop", "-1", "-fflags", "+genpts"])
-            ffmpeg_args.extend(["-i", video_paths[0]])
+            loop_flag = []
+            if target_length > 0:
+                loop_flag = ["-stream_loop", "-1"]
 
+            ffmpeg_args = loop_flag + ["-fflags", "+genpts", "-i", video_paths[0]]
             if audio_path:
                 if target_length > 0:
                     ffmpeg_args.extend(["-stream_loop", "-1"])
@@ -248,13 +291,13 @@ async def mix_video(
 
             eff_dur = target_length or total_expected_duration or 600
             if has_any_overlay:
-                filter_complex += f"[0:v]scale={resolution}:force_original_aspect_ratio=increase,crop={resolution},setsar=1,fps=30,setpts={pts_multiplier}*PTS,format=yuv420p[vbase]; "
-                overlay = build_overlay_filters(overlay_params, eff_dur, input_count)
+                filter_complex += f"[0:v]scale={resolution}:force_original_aspect_ratio=increase,crop={resolution},setsar=1,setpts={pts_multiplier}*PTS,fps=30,format=yuv420p[vbase]; "
+                overlay = build_overlay_filters(overlay_params, eff_dur, input_count, tmp_dir=tmp_dir, tmp_files=tmp_files)
                 filter_complex += overlay["filters"] + " "
                 for arg in overlay["extra_inputs"]:
                     ffmpeg_args.append(arg)
             else:
-                filter_complex += f"[0:v]scale={resolution}:force_original_aspect_ratio=increase,crop={resolution},setsar=1,fps=30,setpts={pts_multiplier}*PTS,format=yuv420p[v0]; [v0]null[vout]; "
+                filter_complex += f"[0:v]scale={resolution}:force_original_aspect_ratio=increase,crop={resolution},setsar=1,setpts={pts_multiplier}*PTS,fps=30,format=yuv420p[v0]; [v0]null[vout]; "
 
             audio_node = ""
             if keep_audio and audio_path:
@@ -263,7 +306,7 @@ async def mix_video(
             elif keep_audio and not audio_path:
                 audio_node = "0:a"
             elif not keep_audio and audio_path:
-                audio_node = "1:a:0"
+                audio_node = "1:a"
 
             fade_out_dur = 1.5
             fade_out_st = max(0, (target_length or total_expected_duration or 10) - fade_out_dur)
@@ -305,7 +348,7 @@ async def mix_video(
 
             filter_complex = ""
             for i in range(len(video_paths)):
-                filter_complex += f"[{i}:v]scale={resolution}:force_original_aspect_ratio=increase,crop={resolution},setsar=1,fps=30,setpts={pts_multiplier}*PTS,format=yuv420p[v{i}]; "
+                filter_complex += f"[{i}:v]scale={resolution}:force_original_aspect_ratio=increase,crop={resolution},setsar=1,setpts={pts_multiplier}*PTS,fps=30,format=yuv420p[v{i}]; "
 
             if is_none_trans:
                 concat_nodes = "".join(f"[v{i}]" for i in range(len(video_paths)))
@@ -348,7 +391,7 @@ async def mix_video(
             if jobId:
                 progress_map[jobId] = {"progress": 65, "status": "Adding overlays & audio (Pass 2)..."}
 
-            loop_count = max(0, int(target_length // base_sequence_dur))
+            loop_count = max(0, int(target_length // base_sequence_dur)) if base_sequence_dur > 0 else 0
             pass2_args = ["-stream_loop", str(loop_count), "-i", base_sequence_path]
 
             if audio_path:
@@ -356,26 +399,26 @@ async def mix_video(
                     pass2_args.extend(["-stream_loop", "-1"])
                 pass2_args.extend(["-vn", "-i", audio_path])
 
-            p2_input_count = 1 + (1 if audio_path else 0)
+            pass2_input_count = 1 + (1 if audio_path else 0)
             fade_out_dur = 1.5
             fade_out_st = max(0, (target_length or base_sequence_dur or 10) - fade_out_dur)
 
             if has_any_overlay:
-                eff_dur = target_length or base_sequence_dur or 600
-                overlay = build_overlay_filters(overlay_params, eff_dur, p2_input_count)
+                effective_duration = target_length or base_sequence_dur or 600
+                overlay = build_overlay_filters(overlay_params, effective_duration, pass2_input_count, tmp_dir=tmp_dir, tmp_files=tmp_files)
                 for arg in overlay["extra_inputs"]:
                     pass2_args.append(arg)
 
-                p2_filter = f"[0:v]null[vbase]; {overlay['filters']}"
+                pass2_filter = f"[0:v]null[vbase]; {overlay['filters']}"
                 if audio_path:
-                    p2_filter += f" [1:a]afade=t=out:st={fade_out_st}:d={fade_out_dur}[aout]"
+                    pass2_filter += f" [1:a]afade=t=out:st={fade_out_st}:d={fade_out_dur}[aout]"
 
-                p2_script = os.path.join(tmp_dir, f"filter2-{tmp_id}.txt")
-                with open(p2_script, "w", encoding="utf-8") as f:
-                    f.write(p2_filter.strip().rstrip(";"))
-                tmp_files.append(p2_script)
+                f_script2 = os.path.join(tmp_dir, f"filter2-{tmp_id}.txt")
+                with open(f_script2, "w", encoding="utf-8") as f:
+                    f.write(pass2_filter.strip().rstrip(";"))
+                tmp_files.append(f_script2)
 
-                pass2_args.extend(["-filter_complex_script", p2_script])
+                pass2_args.extend(["-filter_complex_script", f_script2])
                 if audio_path:
                     pass2_args.extend(["-map", "[vout]", "-map", "[aout]"])
                 else:
@@ -412,7 +455,7 @@ async def mix_video(
             except Exception:
                 pass
 
-        background_tasks.add_task(cleanup_files, [output_path], jobId)
+        background_tasks.add_task(cleanup_files, [], jobId)
 
         stat_size = os.path.getsize(output_path)
         return FileResponse(
@@ -428,6 +471,7 @@ async def mix_video(
 
     except Exception as e:
         print(f"Video mix failed: {e}")
+        traceback.print_exc()
         for f in tmp_files:
             try:
                 if os.path.exists(f):

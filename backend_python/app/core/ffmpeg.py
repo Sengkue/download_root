@@ -1,7 +1,10 @@
 import os
+import sys
 import re
 import shutil
 import asyncio
+import subprocess
+import threading
 from pathlib import Path
 import imageio_ffmpeg
 
@@ -63,41 +66,39 @@ def escape_drawtext(text: str) -> str:
             .replace(",", "\\,")
     )
 
-async def probe_audio_duration(audio_path: str) -> float:
+def _sync_probe_duration(file_path: str) -> float:
+    if not file_path or not os.path.exists(file_path):
+        return 0.0
     try:
-        proc = await asyncio.create_subprocess_exec(
-            FFMPEG_BIN, "-i", audio_path, "-hide_banner", "-f", "null", "-",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+        creationflags = 0
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0x08000000
+
+        res = subprocess.run(
+            [FFMPEG_BIN, "-i", file_path, "-hide_banner", "-f", "null", "-"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            check=False,
+            creationflags=creationflags
         )
-        _, stderr = await proc.communicate()
-        text = stderr.decode("utf-8", errors="ignore")
-        match = re.search(r"Duration:\s*(\d{2}:\d{2}:\d{2}(?:\.\d+)?)", text, re.IGNORECASE)
+        match = re.search(r"Duration:\s*(\d{2}:\d{2}:\d{2}(?:\.\d+)?)", res.stderr, re.IGNORECASE)
         if match:
             return parse_time_to_seconds(match.group(1))
         return 0.0
     except Exception as e:
-        print(f"probe_audio_duration error: {e}")
+        print(f"probe_duration error for {file_path}: {e}")
         return 0.0
+
+async def probe_audio_duration(audio_path: str) -> float:
+    return await asyncio.to_thread(_sync_probe_duration, audio_path)
 
 async def get_video_duration(file_path: str) -> float:
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            FFMPEG_BIN, "-i", file_path, "-hide_banner", "-f", "null", "-",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        _, stderr = await proc.communicate()
-        text = stderr.decode("utf-8", errors="ignore")
-        match = re.search(r"Duration:\s*(\d{2}:\d{2}:\d{2}(?:\.\d+)?)", text, re.IGNORECASE)
-        if match:
-            return parse_time_to_seconds(match.group(1))
-        return 5.0
-    except Exception as e:
-        print(f"get_video_duration error: {e}")
-        return 5.0
+    dur = await asyncio.to_thread(_sync_probe_duration, file_path)
+    return dur if dur > 0 else 5.0
 
-async def run_ffmpeg(
+def _sync_run_ffmpeg(
     args: list[str],
     job_id: str = None,
     expected_duration: float = 0,
@@ -105,45 +106,55 @@ async def run_ffmpeg(
     progress_scale: float = 100
 ):
     cmd = [FFMPEG_BIN] + [str(a) for a in args]
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0x08000000
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+        bufsize=1,
+        creationflags=creationflags
     )
 
     if job_id:
         active_jobs_map[job_id] = proc
 
-    async def read_stdout():
-        buffer = ""
-        while True:
-            chunk = await proc.stdout.read(1024)
-            if not chunk:
-                break
-            buffer += chunk.decode("utf-8", errors="ignore")
-            lines = buffer.split("\n")
-            buffer = lines.pop()
-            for line in lines:
-                trimmed = line.strip()
-                if trimmed.startswith("out_time_us=") and job_id and expected_duration > 0:
-                    try:
-                        us = int(trimmed.split("=")[1])
-                        if us > 0:
-                            pct = (us / 1_000_000 / expected_duration) * progress_scale + progress_offset
-                            pct = max(progress_offset, min(pct, progress_offset + progress_scale))
-                            progress_map[job_id] = {
-                                "progress": round(pct, 1),
-                                "status": f"Encoding video... {round(pct)}%"
-                            }
-                    except Exception:
-                        pass
+    stderr_lines = []
+    def read_stderr():
+        for line in proc.stderr:
+            stderr_lines.append(line)
+            if len(stderr_lines) > 60:
+                stderr_lines.pop(0)
 
-    stdout_task = asyncio.create_task(read_stdout())
-    _, stderr = await proc.communicate()
-    await stdout_task
+    err_thread = threading.Thread(target=read_stderr, daemon=True)
+    err_thread.start()
 
-    if job_id:
-        active_jobs_map.pop(job_id, None)
+    try:
+        for line in proc.stdout:
+            trimmed = line.strip()
+            if trimmed.startswith("out_time_us=") and job_id and expected_duration > 0:
+                try:
+                    us = int(trimmed.split("=")[1])
+                    if us > 0:
+                        pct = (us / 1_000_000 / expected_duration) * progress_scale + progress_offset
+                        pct = max(progress_offset, min(pct, progress_offset + progress_scale))
+                        progress_map[job_id] = {
+                            "progress": round(pct, 1),
+                            "status": f"Encoding video... {round(pct)}%"
+                        }
+                except Exception:
+                    pass
+
+        proc.wait()
+        err_thread.join(timeout=2.0)
+    finally:
+        if job_id:
+            active_jobs_map.pop(job_id, None)
 
     if proc.returncode == 0:
         if job_id:
@@ -153,8 +164,24 @@ async def run_ffmpeg(
             }
         return True
     else:
-        err_msg = stderr.decode("utf-8", errors="ignore")[-500:] if stderr else "Unknown error"
+        err_msg = "".join(stderr_lines)[-500:] if stderr_lines else "Unknown error"
         raise RuntimeError(f"FFmpeg exited with code {proc.returncode}: {err_msg}")
+
+async def run_ffmpeg(
+    args: list[str],
+    job_id: str = None,
+    expected_duration: float = 0,
+    progress_offset: float = 0,
+    progress_scale: float = 100
+):
+    return await asyncio.to_thread(
+        _sync_run_ffmpeg,
+        args,
+        job_id,
+        expected_duration,
+        progress_offset,
+        progress_scale
+    )
 
 def cancel_job(job_id: str) -> bool:
     proc = active_jobs_map.get(job_id)
@@ -164,6 +191,7 @@ def cancel_job(job_id: str) -> bool:
             active_jobs_map.pop(job_id, None)
             progress_map.pop(job_id, None)
             return True
-        except Exception:
+        except Exception as e:
+            print(f"Error cancelling job {job_id}: {e}")
             return False
     return False

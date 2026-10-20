@@ -2,8 +2,10 @@ import os
 import shutil
 import uuid
 import tempfile
+import json
+import traceback
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -13,24 +15,39 @@ from app.modules.media_editor.overlays import build_overlay_filters
 router = APIRouter(prefix="/editor", tags=["Media Editor"])
 
 class CancelRequest(BaseModel):
-    jobId: str
+    jobId: str = None
 
 @router.post("/cancel")
-def cancel_editor_job(data: CancelRequest):
-    if not data.jobId:
-        raise HTTPException(status_code=400, detail="jobId is required")
-    cancel_job(data.jobId)
-    return {"success": True, "message": "Job cancelled"}
-
-def cleanup_files(file_paths: list[str], job_id: str = None):
-    if job_id and job_id in progress_map:
-        progress_map.pop(job_id, None)
-    for p in file_paths:
+async def cancel_editor_job(request: Request, data: CancelRequest = None, jobId: str = Query(None)):
+    jid = data.jobId if (data and data.jobId) else jobId
+    if not jid:
         try:
-            if os.path.exists(p):
-                os.remove(p)
+            body = await request.json()
+            jid = body.get("jobId")
         except Exception:
             pass
+    if not jid:
+        try:
+            form = await request.form()
+            jid = form.get("jobId")
+        except Exception:
+            pass
+
+    if not jid:
+        raise HTTPException(status_code=400, detail="jobId is required")
+    cancel_job(jid)
+    return {"success": True, "message": "Job cancelled"}
+
+def cleanup_files(file_paths: list[str] = None, job_id: str = None):
+    if job_id and job_id in progress_map:
+        progress_map.pop(job_id, None)
+    if file_paths:
+        for p in file_paths:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
 
 @router.post("/merge")
 async def merge_media(
@@ -47,11 +64,15 @@ async def merge_media(
     targetDuration: float = Form(0.0),
     resolution: str = Form("1280:720"),
     overlayTimerEnabled: str = Form("false"),
+    overlayTimerMode: str = Form("pomodoro"),
     overlayTimerMinutes: str = Form("25"),
     overlayTimerBreakMinutes: str = Form("5"),
     overlayTimerPosition: str = Form("top-right"),
     overlayTimerShowProgress: str = Form("false"),
     overlayTimerWithBreak: str = Form("false"),
+    timerPosX: str = Form(None),
+    timerPosY: str = Form(None),
+    timerFontSize: str = Form(None),
     overlayLogoEnabled: str = Form("false"),
     overlayLogoPosition: str = Form("bottom-right"),
     overlayLogoOpacity: str = Form("0.7"),
@@ -61,7 +82,13 @@ async def merge_media(
     overlayQuotesDuration: str = Form("15"),
     overlayQuotesPosition: str = Form("bottom"),
     overlayQuotesCustom: str = Form(None),
-    showNowPlaying: str = Form("false")
+    overlayCustomQuotes: str = Form(None),
+    showNowPlaying: str = Form("false"),
+    playlistPosX: str = Form(None),
+    playlistPosY: str = Form(None),
+    playlistFontSize: str = Form(None),
+    playlistItemsPerCol: str = Form(None),
+    playlistColGap: str = Form(None)
 ):
     if not image or not audio:
         raise HTTPException(status_code=400, detail="Both image(s) and audio files are required")
@@ -94,79 +121,65 @@ async def merge_media(
         final_audio_path = saved_audio_paths[0][0]
         now_playing_segments = []
 
+        # Merge multiple audios if needed
         if len(saved_audio_paths) > 1:
             if jobId:
-                progress_map[jobId] = {"progress": 0, "status": "Merging audio tracks..."}
-            merged_audio = os.path.join(tmp_dir, f"merged-audio-{tmp_id}.aac")
-            tmp_files.append(merged_audio)
+                progress_map[jobId] = {"progress": 1, "status": "Merging audio tracks..."}
+            merged_audio_path = os.path.join(tmp_dir, f"merged_audio-{tmp_id}.aac")
+            tmp_files.append(merged_audio_path)
 
-            audio_args = []
+            audio_inputs = []
             filter_complex = ""
-            concat_inputs = ""
             current_time = 0.0
 
-            for i, (p, orig_name) in enumerate(saved_audio_paths):
-                audio_args.extend(["-i", p])
-                filter_complex += f"[{i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a{i}];"
-                concat_inputs += f"[a{i}]"
-
-                if showNowPlaying == "true":
-                    dur = await probe_audio_duration(p)
-                    now_playing_segments.append({
-                        "title": Path(orig_name).stem if orig_name else f"Track {i+1}",
-                        "start": current_time,
-                        "end": current_time + dur
-                    })
-                    current_time += dur
-
-            filter_complex += f"{concat_inputs}concat=n={len(saved_audio_paths)}:v=0:a=1[aout]"
-            audio_args.extend([
-                "-filter_complex", filter_complex,
-                "-map", "[aout]",
-                "-c:a", "aac", "-b:a", "192k",
-                "-y", merged_audio
-            ])
-            await run_ffmpeg(audio_args)
-            final_audio_path = merged_audio
-        else:
-            if showNowPlaying == "true":
-                p, orig_name = saved_audio_paths[0]
+            for idx, (p, orig_name) in enumerate(saved_audio_paths):
+                audio_inputs.extend(["-i", p])
+                filter_complex += f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo[a{idx}];"
                 dur = await probe_audio_duration(p)
                 now_playing_segments.append({
-                    "title": Path(orig_name).stem if orig_name else "Track 1",
-                    "start": 0.0,
-                    "end": dur
+                    "title": Path(orig_name).stem if orig_name else f"Track {idx+1}",
+                    "start": current_time,
+                    "end": current_time + dur
                 })
+                current_time += dur
+
+            filter_complex += "".join(f"[a{i}]" for i in range(len(saved_audio_paths)))
+            filter_complex += f"concat=n={len(saved_audio_paths)}:v=0:a=1[outa]"
+
+            merge_args = audio_inputs + [
+                "-filter_complex", filter_complex,
+                "-map", "[outa]",
+                "-c:a", "aac", "-b:a", "192k",
+                "-y", merged_audio_path
+            ]
+            await run_ffmpeg(merge_args)
+            final_audio_path = merged_audio_path
+        else:
+            p, orig_name = saved_audio_paths[0]
+            dur = await probe_audio_duration(p)
+            now_playing_segments.append({
+                "title": Path(orig_name).stem if orig_name else "Track 1",
+                "start": 0.0,
+                "end": dur
+            })
 
         # Save images
         saved_image_paths = []
-        for img in image:
-            i_suffix = Path(img.filename).suffix or ".jpg"
-            i_path = os.path.join(tmp_dir, f"img-{uuid.uuid4().hex[:6]}{i_suffix}")
+        for img_file in image:
+            suffix = Path(img_file.filename).suffix or ".jpg"
+            i_path = os.path.join(tmp_dir, f"img-{uuid.uuid4().hex[:6]}{suffix}")
             with open(i_path, "wb") as buf:
-                shutil.copyfileobj(img.file, buf)
+                shutil.copyfileobj(img_file.file, buf)
             tmp_files.append(i_path)
             saved_image_paths.append(i_path)
 
-        if jobId:
-            progress_map[jobId] = {"progress": 0, "status": "Analyzing audio track..."}
         audio_duration = await probe_audio_duration(final_audio_path)
-        if audio_duration <= 0:
-            audio_duration = 10.0
-
         target_length = targetDuration if targetDuration > 0 else audio_duration
 
         fps = 30
-        zoom_range = 0.3
-        if zoomSpeed:
-            try:
-                zoom_range = max(0.01, min(float(zoomSpeed) / 100.0, 1.5))
-            except ValueError:
-                zoom_map = {"slow": 0.15, "normal": 0.3, "fast": 0.5}
-                zoom_range = zoom_map.get(zoomSpeed, 0.3)
-
-        zp_w, zp_h = 8192, 4608
-        center_expr = "x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
+        zoom_range = 0.15 if zoomSpeed == "slow" else (0.45 if zoomSpeed == "fast" else 0.3)
+        center_expr = "x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2'"
+        zp_w, zp_h = 1920, 1080
 
         def get_zoompan(dir_val: str, duration_frames: int) -> str:
             if dir_val == "none":
@@ -176,13 +189,20 @@ async def merge_media(
             else:
                 return f"zoompan=z='if(lte(on,1),1,1+{zoom_range}*on/{duration_frames})':{center_expr}:d={duration_frames}:fps={fps}:s={zp_w}x{zp_h}"
 
+        quotes_input = overlayQuotesCustom or overlayCustomQuotes
+
         overlay_params = {
+            "resolution": resolution,
             "timerEnabled": overlayTimerEnabled == "true",
+            "timerMode": overlayTimerMode or "pomodoro",
             "timerMinutes": overlayTimerMinutes,
             "timerBreakMinutes": overlayTimerBreakMinutes,
             "timerPosition": overlayTimerPosition,
             "timerShowProgress": overlayTimerShowProgress == "true",
             "timerWithBreak": overlayTimerWithBreak == "true",
+            "timerPosX": timerPosX,
+            "timerPosY": timerPosY,
+            "timerFontSize": timerFontSize,
             "logoEnabled": overlayLogoEnabled == "true",
             "logoPath": logo_path,
             "logoPosition": overlayLogoPosition,
@@ -192,9 +212,14 @@ async def merge_media(
             "quotesInterval": overlayQuotesInterval,
             "quotesDuration": overlayQuotesDuration,
             "quotesPosition": overlayQuotesPosition,
-            "customQuotes": overlayQuotesCustom,
+            "customQuotes": quotes_input,
             "showNowPlaying": showNowPlaying == "true",
-            "nowPlayingSegments": now_playing_segments
+            "nowPlayingSegments": now_playing_segments,
+            "playlistPosX": playlistPosX,
+            "playlistPosY": playlistPosY,
+            "playlistFontSize": playlistFontSize,
+            "playlistItemsPerCol": playlistItemsPerCol,
+            "playlistColGap": playlistColGap
         }
 
         has_overlays = (
@@ -217,16 +242,16 @@ async def merge_media(
 
             filter_complex = (
                 f"[0:v]{zp_filter},scale={res_w}:{res_h}:force_original_aspect_ratio=decrease,"
-                f"pad={res_w}:{res_h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p[vbase]; "
+                f"pad={res_w}:{res_h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[vbase]; "
             )
 
             fade_out_st = max(0, target_length - 2)
-            filter_complex += f"[1:a]afade=t=out:st={fade_out_st}:d=2[aout_final]; "
+            filter_complex += f"[1:a]afade=t=out:st={fade_out_st}:d={min(2.0, target_length)}[aout_final]; "
 
             pass_args = ["-loop", "1", "-i", single_image, "-i", final_audio_path]
 
             if has_overlays:
-                overlay = build_overlay_filters(overlay_params, target_length, 2)
+                overlay = build_overlay_filters(overlay_params, target_length, 2, tmp_dir=tmp_dir, tmp_files=tmp_files)
                 filter_complex += overlay["filters"]
                 pass_args.extend(overlay["extra_inputs"])
                 out_v = "[vout]"
@@ -273,13 +298,12 @@ async def merge_media(
                 zp_filter = get_zoompan(z_dir, img_frames)
                 filter_complex += (
                     f"[{i}:v]{zp_filter},scale={res_w}:{res_h}:force_original_aspect_ratio=decrease,"
-                    f"pad={res_w}:{res_h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v{i}]; "
+                    f"pad={res_w}:{res_h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v{i}]; "
                 )
 
             trans_list = ["fade", "wipeleft", "wiperight", "circlecrop", "hblur"]
             if transitionTypes:
                 try:
-                    import json
                     parsed_tt = json.loads(transitionTypes)
                     if isinstance(parsed_tt, list) and parsed_tt:
                         trans_list = parsed_tt
@@ -300,8 +324,13 @@ async def merge_media(
                 last_node = out_node
                 cur_offset += (dur_per_img - t_dur)
 
+            f_script1 = os.path.join(tmp_dir, f"filter1-{tmp_id}.txt")
+            with open(f_script1, "w", encoding="utf-8") as f:
+                f.write(filter_complex.strip().rstrip(";"))
+            tmp_files.append(f_script1)
+
             pass1_args.extend([
-                "-filter_complex", filter_complex,
+                "-filter_complex_script", f_script1,
                 "-map", "[vout]",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
                 "-r", str(fps), "-crf", "20", "-preset", "veryfast",
@@ -309,40 +338,31 @@ async def merge_media(
                 slideshow_path
             ])
 
-            await run_ffmpeg(pass1_args, job_id=jobId, expected_duration=slideshow_duration, progress_offset=2, progress_scale=60)
+            await run_ffmpeg(pass1_args, job_id=jobId, expected_duration=slideshow_duration, progress_offset=2, progress_scale=50)
 
-            # Loop over full duration
+            # Pass 2: Overlays, Loop, and Audio
             if jobId:
-                progress_map[jobId] = {"progress": 65, "status": "Looping slideshow over audio..."}
+                progress_map[jobId] = {"progress": 52, "status": "Applying overlays & audio sync..."}
 
-            loop_count = max(0, int(target_length // slideshow_duration))
-            pass2_args = ["-stream_loop", str(loop_count), "-i", slideshow_path]
-            if targetDuration > 0:
-                pass2_args = ["-stream_loop", "-1", "-i", slideshow_path]
-
+            loop_count = max(0, int(target_length // slideshow_duration)) if slideshow_duration > 0 else 0
             fade_out_st = max(0, target_length - 2)
-            pass2_args.extend(["-i", final_audio_path])
 
-            p2_filter = f"[1:a]afade=t=out:st={fade_out_st}:d=2[aout_final]; "
+            pass2_args = ["-stream_loop", str(loop_count), "-i", slideshow_path, "-i", final_audio_path]
 
             if has_overlays:
-                overlay = build_overlay_filters(overlay_params, target_length, 2)
-                p2_filter += f"[0:v]null[vbase]; {overlay['filters']}"
+                overlay = build_overlay_filters(overlay_params, target_length, 2, tmp_dir=tmp_dir, tmp_files=tmp_files)
+                filter2 = f"[0:v]null[vbase]; {overlay['filters']} [1:a]afade=t=out:st={fade_out_st}:d={min(2.0, target_length)}[aout]"
                 pass2_args.extend(overlay["extra_inputs"])
-                out_v = "[vout]"
-            else:
-                out_v = "0:v"
 
-            p2_script = os.path.join(tmp_dir, f"filter2-{tmp_id}.txt")
-            with open(p2_script, "w", encoding="utf-8") as f:
-                f.write(p2_filter.strip().rstrip(";"))
-            tmp_files.append(p2_script)
+                f_script2 = os.path.join(tmp_dir, f"filter2-{tmp_id}.txt")
+                with open(f_script2, "w", encoding="utf-8") as f:
+                    f.write(filter2.strip().rstrip(";"))
+                tmp_files.append(f_script2)
 
-            if has_overlays:
                 pass2_args.extend([
-                    "-filter_complex_script", p2_script,
-                    "-map", out_v, "-map", "[aout_final]",
-                    "-c:v", "libx264", "-preset", "veryfast",
+                    "-filter_complex_script", f_script2,
+                    "-map", "[vout]", "-map", "[aout]",
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "23", "-pix_fmt", "yuv420p",
                     "-c:a", "aac", "-b:a", "192k",
                     "-t", str(target_length),
                     "-y", "-progress", "pipe:1",
@@ -350,8 +370,8 @@ async def merge_media(
                 ])
             else:
                 pass2_args.extend([
-                    "-filter_complex_script", p2_script,
-                    "-map", out_v, "-map", "[aout_final]",
+                    "-filter_complex", f"[1:a]afade=t=out:st={fade_out_st}:d={min(2.0, target_length)}[aout]",
+                    "-map", "0:v", "-map", "[aout]",
                     "-c:v", "copy",
                     "-c:a", "aac", "-b:a", "192k",
                     "-t", str(target_length),
@@ -359,10 +379,10 @@ async def merge_media(
                     output_path
                 ])
 
-            await run_ffmpeg(pass2_args, job_id=jobId, expected_duration=target_length, progress_offset=65, progress_scale=34)
+            await run_ffmpeg(pass2_args, job_id=jobId, expected_duration=target_length, progress_offset=52, progress_scale=47)
 
         if jobId:
-            progress_map[jobId] = {"progress": 100, "status": "Video ready!"}
+            progress_map[jobId] = {"progress": 100, "status": "Complete"}
 
         for f in tmp_files:
             try:
@@ -371,7 +391,7 @@ async def merge_media(
             except Exception:
                 pass
 
-        background_tasks.add_task(cleanup_files, [output_path], jobId)
+        background_tasks.add_task(cleanup_files, [], jobId)
 
         stat_size = os.path.getsize(output_path)
         return FileResponse(
@@ -387,6 +407,7 @@ async def merge_media(
 
     except Exception as e:
         print(f"Editor merge error: {e}")
+        traceback.print_exc()
         for f in tmp_files:
             try:
                 if os.path.exists(f):

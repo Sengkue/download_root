@@ -16,10 +16,8 @@ APP_DIR = CORE_DIR.parent
 PROJECT_DIR = APP_DIR.parent
 ROOT_DIR = PROJECT_DIR.parent
 
-# Load .env (check backend_python/.env then root/backend/.env)
+# Load .env
 ENV_PATH = PROJECT_DIR / ".env"
-if not ENV_PATH.exists():
-    ENV_PATH = ROOT_DIR / "backend" / ".env"
 load_dotenv(ENV_PATH)
 
 # Server Config
@@ -27,15 +25,11 @@ PORT = int(os.getenv("PORT", 3005))
 HOST = os.getenv("HOST", "0.0.0.0")
 
 # Database Path
-DB_PATH = ROOT_DIR / "backend" / "database.sqlite"
-if not DB_PATH.exists():
-    DB_PATH = PROJECT_DIR / "database.sqlite"
+DB_PATH = PROJECT_DIR / "database.sqlite"
 DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 # Upload Directory
-UPLOAD_DIR = ROOT_DIR / "backend" / "uploads"
-if not UPLOAD_DIR.exists():
-    UPLOAD_DIR = PROJECT_DIR / "uploads"
+UPLOAD_DIR = PROJECT_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # JWT Security

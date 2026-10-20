@@ -62,6 +62,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     }
 
 @router.get("/me")
+@router.get("/profile")
 def get_profile(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
