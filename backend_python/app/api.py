@@ -12,6 +12,7 @@ from app.modules.lyrics import lyrics_router
 from app.modules.downloader import downloader_router
 from app.modules.media_editor import editor_router, video_mixer_router, music_mixer_router
 from app.modules.social_sync import youtube_router, tiktok_router
+from app.modules.meta_music import meta_music_router
 
 # Master API Router with /api prefix
 api_router = APIRouter(prefix="/api")
@@ -29,6 +30,7 @@ api_router.include_router(video_mixer_router)
 api_router.include_router(music_mixer_router)
 api_router.include_router(youtube_router)
 api_router.include_router(tiktok_router)
+api_router.include_router(meta_music_router)
 
 # Direct root-level routes under /api (e.g. /api/download, /api/typing-lessons)
 api_router.include_router(downloader_router)

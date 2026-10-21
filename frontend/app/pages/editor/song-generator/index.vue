@@ -54,6 +54,29 @@
             >
               Refresh
             </v-btn>
+
+            <v-btn
+              variant="flat"
+              color="cyan-accent-3"
+              rounded="xl"
+              prepend-icon="mdi-waveform"
+              to="/editor/meta-music"
+              class="text-none font-weight-bold px-4 text-black"
+            >
+              🎵 ໄປທີ່ Meta Music (ບໍ່ມີ Captcha)
+            </v-btn>
+
+            <v-btn
+              variant="flat"
+              color="deep-purple-accent-2"
+              rounded="xl"
+              prepend-icon="mdi-open-in-new"
+              href="https://suno.com/create"
+              target="_blank"
+              class="text-none font-weight-bold px-4 text-white"
+            >
+              🌐 ເປີດ Suno.com ສ້າງເພງ
+            </v-btn>
           </div>
         </div>
 
@@ -505,9 +528,9 @@
                     </div>
 
                     <!-- Audio Player Widget -->
-                    <div v-if="song.audio_url" class="audio-player-box mb-2">
+                    <div v-if="song.audio_url || song.id" class="audio-player-box mb-2">
                       <audio
-                        :src="song.audio_url"
+                        :src="getStreamUrl(song)"
                         controls
                         preload="metadata"
                         class="w-100 native-audio-player"
@@ -538,25 +561,23 @@
 
                         <!-- Copy Audio Link -->
                         <v-btn
-                          v-if="song.audio_url"
                           size="small"
                           variant="tonal"
                           color="grey-lighten-2"
                           rounded="lg"
                           icon="mdi-content-copy"
-                          @click="copyAudioLink(song.audio_url)"
+                          @click="copyAudioLink(getStreamUrl(song))"
                           title="Copy Link"
                         ></v-btn>
 
                         <!-- Download Button -->
                         <v-btn
-                          v-if="song.audio_url"
                           size="small"
                           color="amber-accent-3"
                           variant="flat"
                           rounded="lg"
                           prepend-icon="mdi-download"
-                          :href="song.audio_url"
+                          :href="getStreamUrl(song)"
                           :download="`${song.title || 'suno_song'}_${song.id?.slice(0, 8)}.m4a`"
                           target="_blank"
                           class="text-none font-weight-bold text-black"
@@ -761,6 +782,15 @@ function appendLyricTag(tag) {
   }
 }
 
+// Resolve Stream URL through local proxy (handles local files, SSL bypass & CORS)
+function getStreamUrl(song) {
+  if (!song) return '';
+  if (song.id && isServerOnline.value) {
+    return `${sunoBaseUrl.value}/api/stream?id=${song.id}`;
+  }
+  return song.audio_url || `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${song.id}.m4a`;
+}
+
 // Copy Audio Link
 function copyAudioLink(url) {
   if (!url) return;
@@ -819,15 +849,13 @@ async function fetchRecentTracks() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        // Sanitize audio url
+        // Sanitize audio url to use local stream proxy
         songList.value = data.map(song => {
-          let audioUrl = song.audio_url;
-          if (!audioUrl || audioUrl.includes('forbidden')) {
-            audioUrl = `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${song.id}.m4a`;
-          }
+          const streamUrl = song.id ? `${sunoBaseUrl.value}/api/stream?id=${song.id}` : '';
           return {
             ...song,
-            audio_url: audioUrl
+            audio_url: streamUrl || song.audio_url || '',
+            raw_url: song.audio_url || (song.id ? `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${song.id}.m4a` : '')
           };
         });
       }
@@ -916,9 +944,10 @@ function handleNewTracks(data) {
   const items = Array.isArray(data) ? data : [data];
   for (const track of items) {
     if (track && (track.audio_url || track.id)) {
-      if (!track.audio_url || track.audio_url.includes('forbidden')) {
-        track.audio_url = `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${track.id}.m4a`;
-      }
+      const streamUrl = track.id ? `${sunoBaseUrl.value}/api/stream?id=${track.id}` : '';
+      track.raw_url = track.audio_url || (track.id ? `https://d2lwuy8qc234o3.cloudfront.net/1/clip/${track.id}.m4a` : '');
+      track.audio_url = streamUrl || track.audio_url || '';
+      
       // Check if not already in list
       const existingIdx = songList.value.findIndex(s => s.id === track.id);
       if (existingIdx !== -1) {
@@ -939,9 +968,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700&display=swap');
+
 /* ======================================================== */
 /* High Contrast, Modern Glassmorphism & Visual Aesthetics  */
 /* ======================================================== */
+
+.song-generator-container,
+.song-generator-container :deep(*) {
+  font-family: 'Noto Sans Lao', 'Outfit', system-ui, -apple-system, sans-serif !important;
+}
 
 .song-generator-container {
   color: #f8fafc;
@@ -958,6 +994,7 @@ onMounted(async () => {
   letter-spacing: -0.5px;
   background: linear-gradient(135deg, #ffffff 40%, #fef08a 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

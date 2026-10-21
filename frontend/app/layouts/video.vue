@@ -69,6 +69,16 @@
           color="amber-accent-2"
           class="nav-item mb-1"
         ></v-list-item>
+
+        <v-list-item 
+          to="/editor/meta-music" 
+          prepend-icon="mdi-waveform" 
+          title="Meta AI Music" 
+          subtitle="MusicGen Python Studio"
+          rounded="lg"
+          color="cyan-accent-3"
+          class="nav-item mb-1"
+        ></v-list-item>
       </v-list>
     </v-navigation-drawer>
 

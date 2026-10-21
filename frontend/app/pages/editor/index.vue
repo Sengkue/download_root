@@ -85,7 +85,7 @@
         </v-col>
 
         <!-- Suno Song Studio Card -->
-        <v-col cols="12" md="12">
+        <v-col cols="12" md="6">
           <v-card
             class="hub-card pa-6 rounded-xl h-100 d-flex flex-column"
             elevation="10"
@@ -103,7 +103,7 @@
             </div>
 
             <p class="text-grey-lighten-2 flex-grow-1 mb-6 text-body-1">
-              Create complete original Lao songs and background soundtracks using local Suno AI integration and Gemini Lao lyrics generator. Audition playback and download MP3s directly.
+              Create complete original Lao songs and background soundtracks using local Suno AI integration and Gemini Lao lyrics generator.
             </p>
 
             <v-btn
@@ -116,6 +116,42 @@
               class="font-weight-bold text-none text-black"
             >
               Open Suno Song Studio
+            </v-btn>
+          </v-card>
+        </v-col>
+
+        <!-- Meta AI Music Studio Card -->
+        <v-col cols="12" md="6">
+          <v-card
+            class="hub-card pa-6 rounded-xl h-100 d-flex flex-column"
+            elevation="10"
+            to="/editor/meta-music"
+            style="border: 1px solid rgba(6, 182, 212, 0.35); background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.8));"
+          >
+            <div class="d-flex align-center mb-4">
+              <div class="icon-avatar mr-4" style="background: linear-gradient(135deg, #06b6d4, #8b5cf6); width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4);">
+                <v-icon size="32" color="white">mdi-waveform</v-icon>
+              </div>
+              <div>
+                <h2 class="text-h5 font-weight-bold text-white mb-1">Meta AI Music</h2>
+                <span class="badge-tag" style="background: rgba(6, 182, 212, 0.2); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: bold;">Python Backend • 100% Free • No Captcha</span>
+              </div>
+            </div>
+
+            <p class="text-grey-lighten-2 flex-grow-1 mb-6 text-body-1">
+              Generate instrumental melodies and music tracks using Meta MusicGen AI running on the dedicated Python FastAPI server. Direct MP3/WAV download.
+            </p>
+
+            <v-btn
+              color="cyan-accent-3"
+              variant="flat"
+              rounded="lg"
+              size="large"
+              block
+              append-icon="mdi-arrow-right"
+              class="font-weight-bold text-none text-black"
+            >
+              Open Meta AI Music Studio
             </v-btn>
           </v-card>
         </v-col>
