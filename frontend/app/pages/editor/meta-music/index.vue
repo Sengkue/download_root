@@ -755,37 +755,55 @@ const snackbar = reactive({
   icon: 'mdi-check-circle'
 });
 
-// Lao & Global Style Presets
+// Lao & Global Style Presets (Regular & Super Seamless Loops)
 const stylePresets = [
   {
-    name: '🪕 ສຽງແຄນລາວດັ້ງເດີມ (Lao Khaen)',
-    prompt: 'Traditional Lao acoustic music with soulful bamboo khaen melodies, delicate fingerpicked acoustic guitar, wooden percussion, 80 bpm, warm atmospheric acoustic space',
-    color: 'amber-accent-3',
-    icon: 'mdi-music-clef-treble'
+    name: '🔁 ໂລຟາຍລູບ (Lo-Fi Study Loop)',
+    prompt: 'Seamless looping lo-fi hip hop beat, smooth Fender Rhodes electric piano chords, dusty vinyl crackle, gentle acoustic guitar motif, steady rhythmic boom-bap drums, warm tape saturation, 75 bpm, constant groove, no abrupt intro or outro, perfect background loop',
+    color: 'teal-accent-3',
+    icon: 'mdi-repeat'
   },
   {
-    name: '☕ ໂລຟາຍຊິວໆ (Lao Café Lo-Fi)',
-    prompt: 'Relaxing chill lo-fi hip hop beat, soft electric piano Rhodes chords, acoustic guitar licks, smooth sub bass, vinyl crackle, cozy coffee shop vibe, 78 bpm',
-    color: 'teal-accent-3',
-    icon: 'mdi-coffee'
+    name: '🔁 ແຄນລາວລູບ (Lao Mekong Acoustic Loop)',
+    prompt: 'Seamless acoustic loop, soulful Lao bamboo khaen melodic riff, gentle fingerpicked acoustic nylon guitar, soft wooden shaker percussion, tranquil river atmosphere, warm reverb, 82 bpm, steady hypnotic groove, continuous seamless background loop',
+    color: 'amber-accent-3',
+    icon: 'mdi-repeat'
+  },
+  {
+    name: '🔁 ຊິນທ໌ເວບລູບ (Synthwave Drive Loop)',
+    prompt: 'Endless synthwave driving loop, pulsating analog arpeggiated synth bassline, lush retro pads, punchy 80s gated drums, four-on-the-floor kick, neon cyber aesthetic, 110 bpm, steady repeating melody, continuous hypnotic rhythm, seamless loop',
+    color: 'pink-accent-2',
+    icon: 'mdi-repeat'
+  },
+  {
+    name: '🔁 ເປຍໂນໂຟກັສ (Deep Focus Ambient Loop)',
+    prompt: 'Seamless ambient background loop for deep focus, delicate minimal piano arpeggios, warm analog drone pad, subtle sub-bass pulse, tape delay textures, 65 bpm, continuous tranquil soundscape, zero interruptions, meditative flowing loop',
+    color: 'cyan-accent-3',
+    icon: 'mdi-repeat'
+  },
+  {
+    name: '🔁 ຮ້ານກາເຟລູບ (Café Bossa Nova Loop)',
+    prompt: 'Smooth coffee shop bossa nova loop, delicate nylon acoustic guitar rhythm, light brushing snare, soft upright acoustic bass, warm jazz chords, gentle sunny afternoon vibe, 88 bpm, seamless repetitive rhythm for video background',
+    color: 'orange-accent-3',
+    icon: 'mdi-repeat'
+  },
+  {
+    name: '🔁 ແຣັບບີດລູບ (TikTok Trap Beat Loop)',
+    prompt: 'Modern trap instrumental beat loop, rolling 808 sub bass, tight crisp hi-hat rolls, catchy dark flute melody, punchy clap, 140 bpm, seamless cyclic trap groove, ready for TikTok and YouTube Shorts background video loop',
+    color: 'purple-accent-2',
+    icon: 'mdi-repeat'
+  },
+  {
+    name: '🪕 ສຽງແຄນລາວດັ້ງເດີມ (Lao Khaen Traditional)',
+    prompt: 'Traditional Lao acoustic music with soulful bamboo khaen melodies, delicate fingerpicked acoustic guitar, wooden percussion, 80 bpm, warm atmospheric acoustic space',
+    color: 'amber-accent-4',
+    icon: 'mdi-music-clef-treble'
   },
   {
     name: '🎸 ກີຕ້າໂປ່ງຟັງສະບາຍ (Acoustic Guitar)',
     prompt: 'Gentle acoustic fingerstyle guitar solo, peaceful country melody, emotional harmonies, clear studio acoustic recording, 90 bpm',
     color: 'deep-orange-accent-2',
     icon: 'mdi-guitar-acoustic'
-  },
-  {
-    name: '🥁 ບີດປັອບສະໄໝໃໝ່ (Modern Lao Pop)',
-    prompt: 'Modern upbeat Lao pop backing track, bouncy synth bass, catchy guitar hooks, crisp drums, modern radio production, 110 bpm',
-    color: 'pink-accent-2',
-    icon: 'mdi-music-circle-outline'
-  },
-  {
-    name: '🌅 ບັນຍາກາດແຄມຂອງ (Mekong Sunset Ambient)',
-    prompt: 'Serene atmospheric ambient music, gentle wooden flute, acoustic nylon guitar, peaceful water stream sounds, soothing meditative pads',
-    color: 'cyan-accent-3',
-    icon: 'mdi-weather-sunset'
   },
   {
     name: '🎹 ເປຍໂນໂຣແມນຕິກ (Cinematic Piano)',

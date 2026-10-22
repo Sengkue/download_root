@@ -79,6 +79,16 @@
           color="cyan-accent-3"
           class="nav-item mb-1"
         ></v-list-item>
+
+        <v-list-item 
+          to="/editor/podcast-video" 
+          prepend-icon="mdi-podcast" 
+          title="Podcast & Story Studio" 
+          subtitle="Hmong & Lao TTS to Video"
+          rounded="lg"
+          color="deep-purple-accent-2"
+          class="nav-item mb-1"
+        ></v-list-item>
       </v-list>
     </v-navigation-drawer>
 

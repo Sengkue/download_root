@@ -1,6 +1,0 @@
-file 'd:/sourse code/ME/download_root/output_songs/temp_test/d7abf26f-347f-49bd-803c-696024bc8916.aac'
-file 'd:/sourse code/ME/download_root/output_songs/temp_test/d1191735-df92-4646-bd51-297fd3e6fa91.aac'
-file 'd:/sourse code/ME/download_root/output_songs/temp_test/7a167b6e-a505-494d-ab84-1e2600f237ad.aac'
-file 'd:/sourse code/ME/download_root/output_songs/temp_test/56ed51ae-4ced-4769-9a3b-7b0359cc6b3f.aac'
-file 'd:/sourse code/ME/download_root/output_songs/temp_test/1c8dadaa-240a-47d6-a4f5-0dec7562f9ba.aac'
-file 'd:/sourse code/ME/download_root/output_songs/temp_test/6debae7f-209b-46f7-ae7d-34a50c072b26.aac'

@@ -74,22 +74,32 @@ def _generate_music_worker(prompt: str, duration: int, seed: int, title: Optiona
     try:
         print(f"[MetaMusic] Starting generation: '{prompt}' | Duration: {duration}s | Seed: {seed} | Has Token: {bool(token_to_use)}")
         
-        client_kwargs = {
-            "ssl_verify": False,
-            "download_files": False
-        }
-        if token_to_use:
-            client_kwargs["token"] = token_to_use
+        def _call_musicgen(tok: Optional[str]):
+            client_kwargs = {
+                "ssl_verify": False,
+                "download_files": False
+            }
+            if tok:
+                client_kwargs["token"] = tok
+            c = Client("sanchit-gandhi/musicgen-streaming", **client_kwargs)
+            return c.predict(
+                text_prompt=prompt,
+                audio_length_in_s=float(duration),
+                play_steps_in_s=2.5,
+                seed=int(seed),
+                api_name="/generate_audio"
+            )
 
-        client = Client("sanchit-gandhi/musicgen-streaming", **client_kwargs)
-
-        res = client.predict(
-            text_prompt=prompt,
-            audio_length_in_s=float(duration),
-            play_steps_in_s=2.0,
-            seed=int(seed),
-            api_name="/generate_audio"
-        )
+        res = None
+        try:
+            res = _call_musicgen(token_to_use if token_to_use else None)
+        except Exception as e:
+            err_text = str(e)
+            if token_to_use and ("ZeroGPU" in err_text or "limit" in err_text.lower() or "429" in err_text):
+                print(f"[MetaMusic] User Token limit reached. Automatically falling back to Anonymous Quota...")
+                res = _call_musicgen(None)
+            else:
+                raise
 
         if not isinstance(res, dict) or "url" not in res:
             raise RuntimeError(f"Unexpected response from MusicGen: {res}")
@@ -107,47 +117,77 @@ def _generate_music_worker(prompt: str, duration: int, seed: int, title: Optiona
             raise RuntimeError("No audio segments found in MusicGen playlist")
 
         print(f"[MetaMusic] Downloading {len(segments)} audio segments...")
-        concat_file = temp_run_dir / "concat.txt"
-        with open(concat_file, "w", encoding="utf-8") as cf:
-            for seg in segments:
-                seg_local = temp_run_dir / seg
-                seg_remote = base_stream_url + seg
-                sreq = urllib.request.Request(seg_remote, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(sreq, context=SSL_CTX, timeout=30) as sr:
-                    with open(seg_local, "wb") as sf:
-                        sf.write(sr.read())
-                posix_path = seg_local.as_posix()
-                cf.write(f"file '{posix_path}'\n")
+        local_segments = []
+        for seg in segments:
+            seg_local = temp_run_dir / seg
+            seg_remote = base_stream_url + seg
+            sreq = urllib.request.Request(seg_remote, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(sreq, context=SSL_CTX, timeout=30) as sr:
+                with open(seg_local, "wb") as sf:
+                    sf.write(sr.read())
+            local_segments.append(seg_local)
 
-        # Encode MP3 and WAV using imageio_ffmpeg
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
         mp3_out = META_MUSIC_DIR / f"{track_id}.mp3"
         wav_out = META_MUSIC_DIR / f"{track_id}.wav"
 
-        # Export MP3 (256k)
-        cmd_mp3 = [
-            ffmpeg_exe, "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concat_file.as_posix(),
-            "-c:a", "libmp3lame",
-            "-b:a", "256k",
-            mp3_out.as_posix()
-        ]
-        sub_mp3 = subprocess.run(cmd_mp3, capture_output=True, text=True)
-        if sub_mp3.returncode != 0:
-            raise RuntimeError(f"FFmpeg MP3 export failed: {sub_mp3.stderr}")
+        # Seamless Audio Assembly:
+        # Instead of raw concat (which retains the 32ms AAC priming delay & chunk boundary jumps),
+        # we chain equal-power acrossfade (qsin) across all segments to guarantee 100% gapless continuous audio.
+        if len(local_segments) == 1:
+            cmd_mp3 = [
+                ffmpeg_exe, "-y",
+                "-i", local_segments[0].as_posix(),
+                "-c:a", "libmp3lame",
+                "-b:a", "256k",
+                mp3_out.as_posix()
+            ]
+            cmd_wav = [
+                ffmpeg_exe, "-y",
+                "-i", local_segments[0].as_posix(),
+                "-c:a", "pcm_s16le",
+                wav_out.as_posix()
+            ]
+            subprocess.run(cmd_mp3, capture_output=True, check=True)
+            subprocess.run(cmd_wav, capture_output=True, check=True)
+        else:
+            inputs = []
+            for s in local_segments:
+                inputs.extend(["-i", s.as_posix()])
 
-        # Export WAV
-        cmd_wav = [
-            ffmpeg_exe, "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concat_file.as_posix(),
-            "-c:a", "pcm_s16le",
-            wav_out.as_posix()
-        ]
-        subprocess.run(cmd_wav, capture_output=True, text=True)
+            filter_parts = []
+            last_label = "0:a"
+            for i in range(1, len(local_segments)):
+                next_label = f"a{i}" if i < len(local_segments) - 1 else "aout"
+                filter_parts.append(f"[{last_label}][{i}:a]acrossfade=d=0.08:c1=qsin:c2=qsin[{next_label}]")
+                last_label = next_label
+
+            filter_complex = ";".join(filter_parts)
+
+            # Export MP3 (256k)
+            cmd_mp3 = [
+                ffmpeg_exe, "-y",
+                *inputs,
+                "-filter_complex", filter_complex,
+                "-map", "[aout]",
+                "-c:a", "libmp3lame",
+                "-b:a", "256k",
+                mp3_out.as_posix()
+            ]
+            sub_mp3 = subprocess.run(cmd_mp3, capture_output=True, text=True)
+            if sub_mp3.returncode != 0:
+                raise RuntimeError(f"FFmpeg MP3 export failed: {sub_mp3.stderr}")
+
+            # Export WAV
+            cmd_wav = [
+                ffmpeg_exe, "-y",
+                *inputs,
+                "-filter_complex", filter_complex,
+                "-map", "[aout]",
+                "-c:a", "pcm_s16le",
+                wav_out.as_posix()
+            ]
+            subprocess.run(cmd_wav, capture_output=True, text=True)
 
         track_data = {
             "id": track_id,
@@ -217,10 +257,10 @@ async def generate_music(req: GenerateMusicRequest):
     except Exception as e:
         err_msg = str(e)
         print(f"[MetaMusic Error] {err_msg}")
-        if "ZeroGPU runs limit" in err_msg:
+        if "ZeroGPU" in err_msg or "limit" in err_msg.lower() or "429" in err_msg:
             raise HTTPException(
                 status_code=429,
-                detail="ZeroGPU Free Anonymous Limit reached. ກະລຸນາໃສ່ Hugging Face Token ຟຣີ (HF_TOKEN) ຈາກ https://huggingface.co/settings/tokens ເພື່ອສ້າງເພງໄດ້ບໍ່ຈຳກັດ (ຟຣີ 100% ບໍ່ຕ້ອງໃຊ້ບັດ)"
+                detail="ZeroGPU Quota Limit Reached (ໂຄຕ້າຟຣີຂອງ Token ນີ້ໝົດແລ້ວ). ທ່ານສາມາດສ້າງ Hugging Face Token ໃໝ່ໄດ້ຟຣີ 100% ຈາກ https://huggingface.co/settings/tokens ແລ້ວນຳມາວາງໃສ່ຊ່ອງ Token ຢູ່ໜ້າເວັບເພື່ອສ້າງເພງຕໍ່ໄດ້ທັນທີ!"
             )
         raise HTTPException(status_code=500, detail=f"Music generation failed: {err_msg}")
 

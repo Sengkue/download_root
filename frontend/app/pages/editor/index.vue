@@ -155,6 +155,63 @@
             </v-btn>
           </v-card>
         </v-col>
+
+        <!-- Podcast & Story Video Studio Card -->
+        <v-col cols="12">
+          <v-card
+            class="hub-card pa-6 rounded-xl h-100 d-flex flex-column"
+            elevation="10"
+            to="/editor/podcast-video"
+            style="border: 1px solid rgba(168, 85, 247, 0.4); background: linear-gradient(135deg, rgba(88, 28, 135, 0.7), rgba(15, 23, 42, 0.85));"
+          >
+            <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between mb-4">
+              <div class="d-flex align-center">
+                <div class="icon-avatar mr-4" style="background: linear-gradient(135deg, #a855f7, #ec4899); width: 60px; height: 60px; border-radius: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(168, 85, 247, 0.5);">
+                  <v-icon size="34" color="white">mdi-podcast</v-icon>
+                </div>
+                <div>
+                  <div class="d-flex align-center gap-2 mb-1 flex-wrap">
+                    <h2 class="text-h5 font-weight-black text-white mb-0">Podcast & Story Video Studio</h2>
+                    <span class="badge-tag" style="background: rgba(168, 85, 247, 0.25); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.5); padding: 3px 12px; border-radius: 20px; font-size: 11px; font-weight: bold;">
+                      NEW • Hmong & Lao Voice • YouTube Ready
+                    </span>
+                  </div>
+                  <span class="text-subtitle-2 text-grey-lighten-2">ອັດວິດີໂອ / ຮູບພາບ • ສ້າງສຽງອ່ານຄຳສອນໃຈ, ພອດແຄສ ແລະ ນິທານ • ໂພສລົງ YouTube</span>
+                </div>
+              </div>
+
+              <v-btn
+                color="deep-purple-accent-2"
+                variant="flat"
+                rounded="lg"
+                size="large"
+                append-icon="mdi-arrow-right"
+                class="font-weight-bold text-none mt-4 mt-sm-0"
+              >
+                Launch Studio
+              </v-btn>
+            </div>
+
+            <p class="text-grey-lighten-2 mb-4 text-body-1">
+              Upload photos or videos, record webcam/screen, type or select Hmong / Lao / Thai / English scripts (encouragement quotes, folklore, podcast episodes), generate word-by-word or narrative voiceover with synchronized animated captions and audio waveforms, then export HD MP4/WebM video files directly for your YouTube podcasts!
+            </p>
+
+            <div class="d-flex flex-wrap" style="gap: 8px;">
+              <v-chip size="small" color="purple-lighten-3" variant="tonal" prepend-icon="mdi-translate">
+                🇲🇼 Lus Hmoob RPA & 🇱🇦 Lao TTS
+              </v-chip>
+              <v-chip size="small" color="cyan-lighten-3" variant="tonal" prepend-icon="mdi-subtitles-outline">
+                Word-by-Word Highlight Captions
+              </v-chip>
+              <v-chip size="small" color="pink-lighten-3" variant="tonal" prepend-icon="mdi-waveform">
+                Live Audio Waveform
+              </v-chip>
+              <v-chip size="small" color="red-lighten-3" variant="tonal" prepend-icon="mdi-youtube">
+                1-Click YouTube Upload
+              </v-chip>
+            </div>
+          </v-card>
+        </v-col>
       </v-row>
     </div>
   </v-container>
